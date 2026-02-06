@@ -31,57 +31,61 @@ def reset_all():
         if key.startswith("chk_") or key.startswith("g_"):
             st.session_state[key] = False if key.startswith("chk_") else "A"
 
-# --- CSS เน้นการมองเห็นบนจอมือถือ (High Visibility) ---
+# --- CSS เน้นการมองเห็นบนจอมือถือ ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stMainBlockContainer { padding-top: 2rem !important; }
     
-    /* ส่วนเลือกวิชา: บังคับ 2 คอลัมน์บนมือถือ และชื่อวิชาชัดๆ */
     [data-testid="stExpander"] [data-testid="column"] {
         flex: 1 1 45% !important;
         min-width: 140px !important;
     }
     
-    /* ปรับแต่ง Dropdown เกรดให้ตัวหนังสือใหญ่และอยู่กลาง */
+    /* ซ่อนลูกศร Dropdown */
+    [data-baseweb="select"] [data-testid="stHeaderActionElements"], svg[class^="StyledIcon"], .stSelectbox svg { display: none !important; }
+    
     div[data-baseweb="select"] { 
         min-height: 35px !important; 
         background-color: #ffffff !important; 
         border: 1px solid #000 !important;
     }
+    
     div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { 
         color: #000000 !important; 
         font-weight: bold !important; 
         font-size: 16px !important; 
+        text-align: center !important;
     }
     
-    /* กล่องสรุปผลด้านล่าง: บังคับขนาดและสีตัวอักษร */
+    /* กล่องสรุปผลด้านล่าง */
     .summary-grid {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         justify-content: flex-start;
+        padding: 10px 0;
     }
     .result-box {
-        width: 90px;
+        width: 100px;
         padding: 8px 4px;
         border: 2px solid #333;
         border-radius: 8px;
         text-align: center;
-        background-color: #ffffff;
-        color: #000000 !important; /* บังคับตัวหนังสือสีดำ */
+        background-color: #ffffff !important;
         box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
     }
     .result-box span {
-        font-size: 10px;
+        font-size: 11px !important;
         display: block;
-        color: #555;
+        color: #333333 !important;
+        margin-bottom: 2px;
     }
     .result-box b {
-        font-size: 18px;
+        font-size: 20px !important;
         display: block;
-        color: #d32f2f; /* สีแดงเข้มให้เกรดเด่น */
+        color: #d32f2f !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -120,16 +124,12 @@ if all_selected:
 
     st.success(f"### GPA: {gpa:.2f} | {total_creds} หน่วยกิต")
     
-    # แสดงรายชื่อวิชาที่เลือกแบบ HTML Grid ที่แก้ปัญหาการมองเห็น
+    # แก้ไขจุดนี้: มั่นใจว่า Tag เปิด-ปิดครบถ้วน
     summary_html = '<div class="summary-grid">'
     for item in all_selected:
-        summary_html += f'''
-            <div class="result-box">
-                <span>{item["name"]}</span>
-                <b>{item["grade"]}</b>
-            </div>
-        '''
+        summary_html += f'<div class="result-box"><span>{item["name"]}</span><b>{item["grade"]}</b></div>'
     summary_html += '</div>'
+    
     st.markdown(summary_html, unsafe_allow_html=True)
 
     st.write("") 
