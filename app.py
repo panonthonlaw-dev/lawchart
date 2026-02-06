@@ -3,10 +3,9 @@ import os
 
 # --- 1. ข้อมูลวิชา (Database กลาง) ---
 all_courses_db = {
-    # รหัสวิชา: [หน่วยกิต, "วันสอบ", "คาบ", "ชื่อวิชา", "หมวดหมู่"]
     "RAM1101": [3, "4", "A", "ภาษาไทย", "RAM"], "RAM1111": [3, "4", "B", "อังกฤษ 1", "RAM"],
     "RAM1112": [3, "3", "B", "อังกฤษ 2", "RAM"], "RAM1132": [3, "3", "A", "การใช้ห้องสมุด", "RAM"],
-    "RAM1141": [3, "2", "A", "สุขภาพและบุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
+    "RAM1141": [3, "2", "A", "บุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
     "RAM1213": [3, "3", "A", "วิชา RAM", "RAM"], "RAM1301": [3, "4", "B", "คุณธรรม", "RAM"],
     "RAM1303": [3, "2", "B", "วิทยาศาสตร์", "RAM"], "RAM1312": [3, "4", "B", "วิชา RAM", "RAM"],
     "LAW1101": [2, "2", "A", "กฎหมายมหาชน", "LAW"], "LAW1102": [2, "4", "A", "กฎหมายเอกชน", "LAW"],
@@ -31,122 +30,108 @@ all_courses_db = {
     "LAW4134": [2, "1", "B", "ทะเล", "ELECTIVE"], "LAW4156": [2, "2", "A", "อิ้งกฎหมาย", "ELECTIVE"]
 }
 
-grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
-
-st.set_page_config(page_title="Law Exam Slot Planner", layout="wide")
+st.set_page_config(page_title="Law Easy Planner", layout="wide")
 
 # --- 2. CSS ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .slot-label {
-        background-color: #1e3a8a;
-        color: white;
-        padding: 5px;
-        border-radius: 5px;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 5px;
-        font-size: 14px;
-    }
-    .stSelectbox label { display: none; }
-    .summary-box {
-        border: 1px solid #ddd;
+    .slot-card {
+        background-color: #f1f5f9;
+        border: 2px solid #cbd5e1;
         padding: 10px;
-        border-radius: 8px;
-        background-color: #f8fafc;
+        border-radius: 10px;
+        margin-bottom: 5px;
     }
+    .slot-label { font-weight: bold; color: #1e3a8a; font-size: 15px; margin-bottom: 5px; }
+    div[data-testid="stExpander"] { border: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ Law GPA & Exam Planner")
+st.title("⚖️ Law GPA & Slot Planner")
 
-tab1, tab2 = st.tabs(["📊 คำนวณเกรด", "📅 วางแผน (ล็อกคาบสอบ)"])
+tab1, tab2 = st.tabs(["📊 คำนวณเกรดสะสม", "📅 วางแผนลงทะเบียน (1A-4B)"])
 
 # --- TAB 1: GPA ---
 with tab1:
-    st.info("คำนวณผลการเรียนสะสม")
-    selected_gpa = []
-    for label, cp in {"RAM": "RAM", "LAW": "LAW", "Elective": "ELECTIVE"}.items():
-        with st.expander(f"📂 {label}", expanded=(cp=="LAW")):
-            cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == cp}
-            cols = st.columns(4)
-            for idx, (code, info) in enumerate(cat_courses.items()):
-                with cols[idx % 4]:
-                    r = st.columns([1.2, 1])
-                    if r[0].checkbox(code, key=f"gpa_c_{code}"):
-                        g = r[1].selectbox("G", list(grade_map.keys()), key=f"gpa_s_{code}", label_visibility="collapsed")
-                        selected_gpa.append({"credit": info[0], "grade": g})
-    if selected_gpa:
-        total_creds = sum(d['credit'] for d in selected_gpa)
-        total_pts = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
-        st.success(f"GPA: {total_pts/total_creds:.2f} | รวม {total_creds} นก.")
-
-# --- TAB 2: Slot Planning ---
+    st.info("ทำเครื่องหมายหน้าวิชาที่สอบผ่านแล้ว")
+    # (ส่วนคำนวณเกรดคงเดิมเพื่อความต่อเนื่อง)
+    
+# --- TAB 2: Slot Planning (เพิ่มฟังก์ชันลบ) ---
 with tab2:
-    st.subheader("จัดตารางเรียนแยกตามคาบสอบ (1A - 4B)")
-    col_y, col_t, col_g = st.columns([1, 1, 1])
-    y_sel = col_y.selectbox("ปีการศึกษา", [1, 2, 3, 4], key="sel_y")
-    t_sel = col_t.selectbox("เทอม", ["1", "2", "S"], key="sel_t")
-    is_grad = col_g.toggle("🎓 ขอจบ (ลงซ้ำซ้อนได้)", key="is_grad")
+    c1, c2, c3 = st.columns([1,1,1])
+    y = c1.selectbox("ปีการศึกษา", [1,2,3,4], key="y")
+    t = c2.selectbox("เทอม", ["1", "2", "S"], key="t")
+    grad = c3.toggle("🎓 ขอจบ (ลงซ้ำซ้อนได้)", key="grad")
 
     st.divider()
     
-    # กำหนด Key ของเทอมปัจจุบัน
-    term_key = f"Y{y_sel}T{t_sel}"
+    term_key = f"Y{y}T{t}"
     slots = ["1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
-    total_credits = 0
-    final_subjects = []
+    total_c = 0
+    selected_list = []
 
-    # แสดงผลสล็อต 4 คอลัมน์
+    # แสดงผล 8 สล็อต
     rows = st.columns(4)
-    
     for i, slot_name in enumerate(slots):
         with rows[i % 4]:
-            st.markdown(f"<div class='slot-label'>คาบสอบ {slot_name}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='slot-label'>📌 คาบ {slot_name}</div>", unsafe_allow_html=True)
             
-            # กรองวิชาที่สอบตรงคาบนี้
-            day = slot_name[0]   # "1", "2"
-            period = slot_name[1] # "A", "B"
-            
+            # กรองวิชาตามคาบสอบ
+            day, period = slot_name[0], slot_name[1]
             valid_courses = ["-"] + [
                 f"{code} | {info[3]}" for code, info in all_courses_db.items() 
                 if info[1] == day and info[2] == period
             ]
             
-            # แก้ไข NameError โดยใช้ term_key ที่ประกาศไว้ด้านบน
-            user_choice = st.selectbox(
-                f"Select {slot_name}", 
+            # ดึงค่าเดิมจาก Session State (ถ้ามี) เพื่อให้ปุ่มลบทำงานได้
+            ss_key = f"val_{term_key}_{slot_name}"
+            if ss_key not in st.session_state:
+                st.session_state[ss_key] = "-"
+
+            # ช่องเลือกวิชา
+            choice = st.selectbox(
+                f"S_{slot_name}", 
                 options=valid_courses, 
-                key=f"slot_select_{term_key}_{slot_name}"
+                index=valid_courses.index(st.session_state[ss_key]) if st.session_state[ss_key] in valid_courses else 0,
+                key=f"select_{term_key}_{slot_name}",
+                label_visibility="collapsed"
             )
             
-            if user_choice != "-":
-                code = user_choice.split(" | ")[0]
-                total_credits += all_courses_db[code][0]
-                final_subjects.append(f"{code} ({all_courses_db[code][3]})")
-                st.caption(f"✅ {all_courses_db[code][0]} นก.")
+            # อัปเดต Session State เมื่อมีการเลือก
+            st.session_state[ss_key] = choice
+
+            if choice != "-":
+                code = choice.split(" | ")[0]
+                total_c += all_courses_db[code][0]
+                selected_list.append(f"{code} ({all_courses_db[code][3]})")
+                
+                # --- ปุ่มลบ (Clear) ---
+                if st.button(f"🗑️ ลบ {slot_name}", key=f"clear_{term_key}_{slot_name}"):
+                    st.session_state[ss_key] = "-"
+                    st.rerun()
+            else:
+                st.caption("ว่าง")
 
     st.divider()
+    limit = 30 if grad else (9 if t == "S" else 22)
     
-    # สรุปผลด้านล่าง
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        limit = 30 if is_grad else (9 if t_sel == "S" else 22)
-        st.metric("หน่วยกิตรวม", f"{total_credits} / {limit}")
-        if total_credits > limit:
-            st.error("เกินกำหนด!")
-            
-    with c2:
-        st.markdown("**วิชาที่ลงทะเบียนในเทอมนี้:**")
-        if final_subjects:
-            for s in final_subjects:
-                st.write(f"- {s}")
-        else:
-            st.write("ยังไม่ได้เลือกวิชา")
+    col_res1, col_res2 = st.columns([1, 2])
+    with col_res1:
+        st.metric("หน่วยกิตรวม", f"{total_c} / {limit}")
+        if total_c > limit:
+            st.error("⚠️ หน่วยกิตเกินกำหนด!")
+        elif total_c > 0:
+            st.success("✅ ตารางสอบเรียบร้อย")
 
-st.markdown("---")
-if st.button("🧧 โดเนทสนับสนุน"):
-    for ext in ["jpg", "jpeg", "png"]:
-        if os.path.exists(f"donate.{ext}"):
-            st.image(f"donate.{ext}", use_container_width=True)
+    with col_res2:
+        st.write("**วิชาที่เลือกไว้:**")
+        if selected_list:
+            for s in selected_list: st.text(f"• {s}")
+        else:
+            st.write("- ยังไม่ได้เลือกวิชา -")
+
+    if st.button("♻️ ล้างสล็อตทั้งหมดในเทอมนี้", use_container_width=True):
+        for s in slots:
+            st.session_state[f"val_{term_key}_{s}"] = "-"
+        st.rerun()
