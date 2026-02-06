@@ -68,7 +68,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 head_col1, head_col2 = st.columns([5, 1])
-head_col1.title("⚖️ คำนวณเกรดนิติศาสตร์")
+head_col1.title("⚖️ คำนวณเกรดนิติศาสตร์รามคำแหง")
 if head_col2.button("♻️ ล้างค่า", on_click=reset_all, use_container_width=True):
     st.rerun()
 
