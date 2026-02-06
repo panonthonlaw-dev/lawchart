@@ -1,11 +1,11 @@
 import streamlit as st
 import os
 
-# --- 1. ข้อมูลวิชา (Database กลาง) ---
+# --- 1. ข้อมูลวิชา (Database) ---
 all_courses_db = {
     "RAM1101": [3, "4", "A", "ภาษาไทย", "RAM"], "RAM1111": [3, "4", "B", "อังกฤษ 1", "RAM"],
     "RAM1112": [3, "3", "B", "อังกฤษ 2", "RAM"], "RAM1132": [3, "3", "A", "การใช้ห้องสมุด", "RAM"],
-    "RAM1141": [3, "2", "A", "บุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
+    "RAM1141": [3, "2", "A", "สุขภาพและบุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
     "RAM1213": [3, "3", "A", "วิชา RAM", "RAM"], "RAM1301": [3, "4", "B", "คุณธรรม", "RAM"],
     "RAM1303": [3, "2", "B", "วิทยาศาสตร์", "RAM"], "RAM1312": [3, "4", "B", "วิชา RAM", "RAM"],
     "LAW1101": [2, "2", "A", "กฎหมายมหาชน", "LAW"], "LAW1102": [2, "4", "A", "กฎหมายเอกชน", "LAW"],
@@ -31,104 +31,98 @@ all_courses_db = {
     "วิชาเลือก 1": [3, "0", "0", "เลือกเสรี 1", "ELECTIVE"], "วิชาเลือก 2": [3, "0", "0", "เลือกเสรี 2", "ELECTIVE"]
 }
 
-st.set_page_config(page_title="Easy Law Planner", layout="wide")
+exam_slots = ["-", "1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
 
-# --- 2. Initialize Session State (ตรวจสอบชื่อ Key ให้ตรงกัน) ---
-if "study_plan" not in st.session_state:
-    # สร้างชื่อ Key เป็นภาษาไทยให้ตรงกับที่จะใช้ในตาราง
-    st.session_state.study_plan = {f"ปี {y} เทอม {t}": [] for y in range(1, 5) for t in ["1", "2", "S"]}
+st.set_page_config(page_title="Law Slot Planner", layout="wide")
 
-# --- 3. CSS ---
+# --- CSS: ปรับแต่งให้เหมือนตารางตารางเรียน ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .overall-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; background-color: white; }
-    .overall-table th, .overall-table td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: top; }
-    .overall-table th { background-color: #2c3e50; color: white; }
-    .sub-item { font-size: 11px; background: #e8f4fd; padding: 2px 5px; border-radius: 4px; margin-bottom: 3px; display: block; border-left: 3px solid #3498db; color: #2c3e50; }
-    .credit-tag { font-weight: bold; color: #e74c3c; font-size: 12px; display: block; margin-top: 5px; }
+    .slot-card {
+        background-color: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .stSelectbox label { font-size: 12px !important; color: #666; }
+    .header-text { font-weight: bold; font-size: 18px; color: #2c3e50; text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ Law GPA & Planning")
+st.title("⚖️ Law Registration Slot Planner")
 
-tab1, tab2 = st.tabs(["📊 คำนวณเกรด (GPA)", "📅 วางแผนลงทะเบียน"])
+# เลือกปีและเทอมที่จะจัด (คราวนี้แบ่งตามคอลัมน์)
+col_y, col_t, col_g = st.columns([1, 1, 1])
+selected_year = col_y.selectbox("เลือกปีการศึกษา", [1, 2, 3, 4])
+selected_term = col_t.selectbox("เลือกเทอม", ["1", "2", "S"])
+is_grad = col_g.toggle("🎓 ขอจบการศึกษา (สอบซ้ำซ้อนได้)")
 
-with tab1:
-    st.info("ส่วนคำนวณเกรด (GPA)")
-    # สามารถนำ Logic การเลือกเกรดมาใส่ตรงนี้ได้เลย
+st.divider()
 
-with tab2:
-    col_l, col_r = st.columns([1, 1])
-    
-    with col_l:
-        st.subheader("1. เพิ่มวิชาเข้าแผน")
-        # ตรวจสอบชื่อเทอมให้ตรงกับ Key ที่สร้างไว้
-        target_term = st.selectbox("เลือกเทอมที่ต้องการจัด:", list(st.session_state.study_plan.keys()))
-        is_grad = st.toggle("🎓 ขอจบการศึกษา (30 นก. / ซ้ำซ้อน)")
+st.markdown(f"<p class='header-text'>กำลังจัดแผน: ปี {selected_year} เทอม {selected_term}</p>", unsafe_allow_html=True)
+
+# สร้างสล็อต 8 แถว
+current_term_key = f"Y{selected_year}T{selected_term}"
+total_credits = 0
+exam_conflicts = []
+used_exams = {}
+
+# รายการวิชาสำหรับ Dropdown
+course_options = ["-"] + sorted(list(all_courses_db.keys()))
+
+cols = st.columns(4) # แบ่งแสดงผล 4 สล็อตต่อแถว (รวมเป็น 2 แถวใหญ่เพื่อให้ดูง่าย)
+
+for i in range(1, 9):
+    # กำหนดสล็อต
+    with cols[(i-1) % 4]:
+        st.markdown(f"**วิชาที่ {i}**")
         
-        cat = st.radio("หมวดหมู่:", ["RAM", "LAW", "ELECTIVE"], horizontal=True)
-        used_subs = [item for sublist in st.session_state.study_plan.values() for item in sublist]
-        available = {k: v for k, v in all_courses_db.items() if v[4] == cat and k not in used_subs}
+        # 1. เลือกวิชา
+        selected_code = st.selectbox(f"เลือกวิชา", course_options, key=f"sub_{current_term_key}_{i}")
         
-        for code, info in available.items():
-            if st.button(f"ADD: {code} {info[3]} ({info[1]}{info[2]})", key=f"p_add_{code}"):
-                st.session_state.study_plan[target_term].append(code)
-                st.rerun()
-
-    with col_r:
-        st.subheader(f"2. รายชื่อวิชาใน {target_term}")
-        current_list = st.session_state.study_plan.get(target_term, [])
-        if not current_list:
-            st.write("ยังไม่ได้เลือกวิชา")
+        if selected_code != "-":
+            info = all_courses_db[selected_code]
+            total_credits += info[0]
+            
+            # 2. เลือกวันสอบ (Default ดึงจาก DB)
+            default_exam = f"{info[1]}{info[2]}" if info[1] != "0" else "-"
+            idx = exam_slots.index(default_exam) if default_exam in exam_slots else 0
+            
+            exam_time = st.selectbox(f"วันสอบ", exam_slots, index=idx, key=f"exam_{current_term_key}_{i}")
+            
+            # ตรวจสอบสอบชน
+            if exam_time != "-":
+                if exam_time in used_exams:
+                    exam_conflicts.append(f"{selected_code} ชนกับ {used_exams[exam_time]} ({exam_time})")
+                used_exams[exam_time] = selected_code
+            
+            st.caption(f"{info[3]} ({info[0]} นก.)")
         else:
-            total_c = 0
-            exam_check = {}
-            for sub in current_list:
-                info = all_courses_db[sub]
-                total_c += info[0]
-                c_s, c_d = st.columns([5, 1])
-                c_s.write(f"**{sub}** {info[3]} ({info[1]}{info[2]})")
-                if c_d.button("DEL", key=f"p_del_{sub}"):
-                    st.session_state.study_plan[target_term].remove(sub)
-                    st.rerun()
-                
-                # เช็กสอบชน
-                d_code = f"{info[1]}{info[2]}"
-                if d_code != "00":
-                    if d_code in exam_check:
-                        if is_grad: st.warning(f"ชน: {sub} กับ {exam_check[d_code]}")
-                        else: st.error(f"ชน: {sub} กับ {exam_check[d_code]}!")
-                    exam_check[d_code] = sub
-            
-            max_c = 30 if is_grad else (9 if "เทอม S" in target_term else 22)
-            st.metric("หน่วยกิตรวม", f"{total_c} / {max_c}")
+            st.selectbox(f"วันสอบ", ["-"], key=f"exam_empty_{i}", disabled=True)
 
-    # --- ส่วนตารางภาพรวม 4 ปี (แก้ไขจุดที่ทำให้เกิด KeyError) ---
-    st.divider()
-    st.markdown("### 🗓️ ตารางสรุปแผนการเรียนภาพรวม 4 ปี")
-    
-    html = "<table class='overall-table'><tr><th>ชั้นปี</th><th>เทอม 1</th><th>เทอม 2</th><th>เทอม S</th></tr>"
-    
-    for y in range(1, 5):
-        html += f"<tr><td><b>ปีที่ {y}</b></td>"
-        for t in ["1", "2", "S"]:
-            t_key = f"ปี {y} เทอม {t}"
-            # ใช้ .get() เพื่อป้องกัน KeyError หากหา Key ไม่เจอ
-            subs = st.session_state.study_plan.get(t_key, [])
-            
-            cell = ""
-            current_t_creds = 0
-            for s in subs:
-                cell += f"<span class='sub-item'>{s} {all_courses_db[s][3]}</span>"
-                current_t_creds += all_courses_db[s][0]
-            
-            html += f"<td>{cell}<span class='credit-tag'>รวม {current_t_creds} นก.</span></td>"
-        html += "</tr>"
-    
-    html += "</table>"
-    st.markdown(html, unsafe_allow_html=True)
-    
-    if st.button("♻️ ล้างแผนทั้งหมด"):
-        st.session_state.study_plan = {f"ปี {y} เทอม {t}": [] for y in range(1, 5) for t in ["1", "2", "S"]}
-        st.rerun()
+# --- ส่วนสรุปผลเทอมนี้ ---
+st.divider()
+c1, c2 = st.columns(2)
+
+with c1:
+    max_c = 30 if is_grad else (9 if selected_term == "S" else 22)
+    st.metric("หน่วยกิตรวมเทอมนี้", f"{total_credits} / {max_c}")
+    if total_credits > max_c:
+        st.error(f"❌ หน่วยกิตเกิน {max_c}!")
+
+with c2:
+    if exam_conflicts:
+        if is_grad:
+            st.warning("⚠️ มีวิชาสอบชนกัน (ใช้สิทธิ์สอบซ้ำซ้อน)")
+            for c in exam_conflicts: st.write(f"- {c}")
+        else:
+            st.error("❌ สอบชนกัน! กรุณาเปลี่ยนวิชา")
+            for c in exam_conflicts: st.write(f"- {c}")
+    elif total_credits > 0:
+        st.success("✅ ตารางสอบปกติ ลงทะเบียนได้")
+
+# --- ตารางสรุปภาพรวมด้านล่าง (ตัวเลือกเสริม) ---
+with st.expander("📊 ดูภาพรวมแผนที่จัดไว้แล้ว"):
+    st.write("ระบบจะจำค่าที่คุณเลือกไว้ในแต่ละเทอม (ตราบเท่าที่ยังไม่ Refresh หน้าเว็บ)")
