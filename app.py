@@ -2,7 +2,7 @@ import streamlit as st
 from fpdf import FPDF
 import os
 
-# ข้อมูลวิชา 140 นก.
+# ข้อมูลวิชา 140 นก. เป๊ะ
 all_courses = {
     "หมวดวิชา RAM": {"RAM1103": 3, "RAM1111": 3, "RAM1112": 3, "RAM1132": 3, "RAM1141": 3, "RAM1204": 3, "RAM1213": 3, "RAM1301": 3, "RAM1302": 3, "RAM1312": 3},
     "หมวดวิชา LAW": {
@@ -13,70 +13,38 @@ all_courses = {
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="GPA Law Extreme", layout="wide")
+st.set_page_config(page_title="Law GPA Quick", layout="wide")
 
-# CSS เพื่อบังคับให้ Dropdown และช่องว่างเล็กจิ๋วที่สุด
+# CSS บีบช่องว่างและลดขนาด Dropdown ให้จิ๋วที่สุด
 st.markdown("""
     <style>
-    /* ลดระยะห่างระหว่างบรรทัดและ Column */
-    .stMainBlockContainer { padding-top: 20px !important; }
-    div[data-testid="stExpander"] { margin-bottom: 0px !important; }
-    div[data-testid="column"] { padding: 0px 2px !important; }
-    
-    /* ปรับแต่ง Dropdown (Selectbox) ให้เล็กลง */
-    div[data-baseweb="select"] {
-        min-height: 25px !important;
-        height: 25px !important;
-        font-size: 12px !important;
-    }
-    div[data-testid="stMarkdownContainer"] p {
-        font-size: 13px !important;
-        margin-bottom: 0px !important;
-    }
-    /* ปรับปุ่มเลือกวิชาให้เล็กลง */
-    div[data-testid="stCheckbox"] {
-        margin-bottom: -10px !important;
-    }
+    .stMainBlockContainer { padding-top: 1rem !important; }
+    div[data-testid="column"] { padding: 0px 5px !important; }
+    .stSelectbox div[data-baseweb="select"] { min-height: 25px !important; height: 25px !important; font-size: 12px !important; }
+    .stCheckbox { margin-bottom: -15px !important; }
+    p { font-size: 13px !important; margin: 0 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ GPA Law (Extreme Compact)")
+st.title("⚖️ คำนวณเกรดนิติศาสตร์")
 
-if "selected" not in st.session_state:
-    st.session_state.selected = {}
+total_creds = 0
+total_score = 0
+pdf_list = []
 
-# --- 1. ส่วนเลือกวิชา (Grid 6 คอลัมน์) ---
+# แบ่งหมวดหมู่ด้วย Expander
 for cat, courses in all_courses.items():
     with st.expander(f"📂 {cat}", expanded=True):
-        cols = st.columns(6)
+        # แสดงผล 4 คอลัมน์ต่อแถว
+        cols = st.columns(4)
         for i, (name, credit) in enumerate(courses.items()):
-            with cols[i % 6]:
-                if st.checkbox(f"{name}", key=f"chk_{name}"):
-                    st.session_state.selected[name] = credit
-                else:
-                    st.session_state.selected.pop(name, None)
-
-# --- 2. ส่วนกรอกเกรด (Grid 5 คอลัมน์) ---
-if st.session_state.selected:
-    st.markdown("---")
-    selected_sorted = dict(sorted(st.session_state.selected.items()))
-    items = list(selected_sorted.items())
-    
-    total_creds, total_score, pdf_list = 0, 0, []
-
-    # แสดงผล 5 วิชาต่อ 1 แถว (ใช้พื้นที่คุ้มค่าที่สุด)
-    rows = (len(items) + 4) // 5
-    for r in range(rows):
-        cols = st.columns(5)
-        for c in range(5):
-            idx = r * 5 + c
-            if idx < len(items):
-                name, credit = items[idx]
-                with cols[c]:
-                    # ใช้ Column เล็กๆ ซ้อนกันเพื่อบีบชื่อและ Dropdown
-                    inner = st.columns([1, 1])
-                    inner[0].write(f"**{name}**")
-                    g_letter = inner[1].selectbox(
+            with cols[i % 4]:
+                # สร้าง Row ย่อยข้างใน [Checkbox ชื่อวิชา | Dropdown เกรด]
+                inner_cols = st.columns([1.5, 1])
+                is_selected = inner_cols[0].checkbox(f"{name}", key=f"chk_{name}")
+                
+                if is_selected:
+                    g_letter = inner_cols[1].selectbox(
                         "G", list(grade_map.keys()), 
                         key=f"grd_{name}", 
                         label_visibility="collapsed"
@@ -85,22 +53,29 @@ if st.session_state.selected:
                     total_score += grade_map[g_letter] * credit
                     pdf_list.append([name, str(credit), g_letter])
 
-    # ส่วนสรุปผล
-    if total_creds > 0:
-        gpa = total_score / total_creds
-        col_res1, col_res2 = st.columns([2, 1])
-        col_res1.info(f"**GPA: {gpa:.2f}** (รวม {total_creds} นก.)")
-        
-        if col_res2.button("🖨️ PDF", use_container_width=True):
-            if os.path.exists("THSarabunNew.ttf"):
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
-                pdf.set_font("THSarabun", "", 18)
-                pdf.cell(0, 10, "รายงานผลการเรียน", ln=True, align='C')
-                pdf.set_font("THSarabun", "", 12)
-                for item in pdf_list:
-                    pdf.cell(60, 7, f" {item[0]}", 1)
-                    pdf.cell(60, 7, f" {item[1]} นก.", 1)
-                    pdf.cell(60, 7, f" เกรด {item[2]}", 1, ln=True)
-                st.download_button("💾 Save PDF", data=pdf.output(), file_name="GPA.pdf")
+# --- ส่วนแสดงผลสรุป (ลอยด้านล่าง) ---
+if total_creds > 0:
+    st.divider()
+    gpa = total_score / total_creds
+    
+    # โชว์ผลแบบกระชับ
+    res_col1, res_col2 = st.columns([3, 1])
+    res_col1.success(f"### GPA: {gpa:.2f} | ทั้งหมด {total_creds} หน่วยกิต")
+    
+    if res_col2.button("🖨️ PDF", use_container_width=True):
+        if os.path.exists("THSarabunNew.ttf"):
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
+            pdf.set_font("THSarabun", "", 18)
+            pdf.cell(0, 10, "รายงานผลการเรียน", ln=True, align='C')
+            pdf.set_font("THSarabun", "", 12)
+            for item in pdf_list:
+                pdf.cell(60, 7, f" {item[0]}", 1)
+                pdf.cell(60, 7, f" {item[1]} นก.", 1)
+                pdf.cell(60, 7, f" เกรด {item[2]}", 1, ln=True)
+            pdf.ln(5)
+            pdf.cell(0, 10, f"รวม {total_creds} หน่วยกิต | GPA: {gpa:.2f}", ln=True)
+            st.download_button("💾 Save PDF", data=pdf.output(), file_name="GPA_Law.pdf")
+        else:
+            st.error("ไม่พบไฟล์ฟอนต์")
