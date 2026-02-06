@@ -30,7 +30,7 @@ all_courses = {
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="GPA Law Pro", layout="wide")
+st.set_page_config(page_title="GPA Law Compact PDF", layout="wide")
 
 # --- 2. ฟังก์ชันล้างค่า ---
 def reset_all():
@@ -53,16 +53,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ส่วนหัวเรื่อง
 head_col1, head_col2 = st.columns([5, 1])
 head_col1.title("⚖️ คำนวณเกรดนิติศาสตร์")
 if head_col2.button("♻️ ล้างค่า", on_click=reset_all, use_container_width=True):
     st.rerun()
 
-# --- 4. การจัดการข้อมูลการเลือก ---
-# เราจะเก็บเป็น Dictionary แยกตามหมวดหมู่เพื่อใช้ใน PDF
 selected_by_cat = {cat: [] for cat in all_courses.keys()}
 
+# --- 4. ส่วนเลือกวิชา ---
 for cat, courses in all_courses.items():
     with st.expander(f"📂 {cat}", expanded=True):
         cols = st.columns(4)
@@ -78,9 +76,9 @@ for cat, courses in all_courses.items():
                     g = inner[1].selectbox("", list(grade_map.keys()), key=grd_key, label_visibility="collapsed")
                     selected_by_cat[cat].append({"name": name, "credit": credit, "grade": g})
 
-# --- 5. สรุปผลและ PDF ---
 all_selected = [item for sublist in selected_by_cat.values() for item in sublist]
 
+# --- 5. สรุปผลและสร้าง PDF (2 คอลัมน์) ---
 if all_selected:
     st.divider()
     total_creds = sum(d['credit'] for d in all_selected)
@@ -95,53 +93,55 @@ if all_selected:
         with res_cols[idx % 6]:
             st.markdown(f'<div class="result-box">{item["name"]}<br><b>{item["grade"]}</b></div>', unsafe_allow_html=True)
 
-    # --- ส่วน PDF จัดหมวดหมู่ใหม่ ---
     if col_pdf.button("🖨️ พิมพ์ PDF", use_container_width=True):
         if os.path.exists("THSarabunNew.ttf"):
             pdf = FPDF()
             pdf.add_page()
             pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
-            
-            # หัวข้อรายงาน
             pdf.set_font("THSarabun", "", 22)
-            pdf.cell(0, 12, "รายงานสรุปผลการเรียนนิติศาสตร์", ln=True, align='C')
+            pdf.cell(0, 15, "รายงานสรุปผลการเรียนนิติศาสตร์", ln=True, align='C')
             pdf.ln(5)
 
             for cat, items in selected_by_cat.items():
                 if items:
-                    # หัวข้อกลุ่มวิชา
                     pdf.set_font("THSarabun", "", 16)
-                    pdf.set_fill_color(240, 240, 240)
+                    pdf.set_fill_color(230, 230, 230)
                     pdf.cell(0, 10, f" {cat}", ln=True, fill=True)
+                    pdf.ln(2)
                     
-                    # ตารางวิชา
                     pdf.set_font("THSarabun", "", 12)
-                    pdf.cell(80, 8, " รหัสวิชา", 1)
-                    pdf.cell(45, 8, " หน่วยกิต", 1, align='C')
-                    pdf.cell(45, 8, " เกรด", 1, ln=True, align='C')
                     
-                    for d in items:
-                        pdf.cell(80, 7, f" {d['name']}", 1)
-                        pdf.cell(45, 7, f" {d['credit']}", 1, align='C')
-                        pdf.cell(45, 7, f" {d['grade']}", 1, ln=True, align='C')
-                    pdf.ln(4)
+                    # Logic แบ่ง 2 คอลัมน์
+                    col_width = 90
+                    start_y = pdf.get_y()
+                    
+                    for i, d in enumerate(items):
+                        # สลับฝั่งซ้าย (0) และ ขวา (1)
+                        side = i % 2
+                        if side == 0 and i > 0:
+                            pdf.set_y(pdf.get_y() + 8) # ขึ้นบรรทัดใหม่เมื่อเริ่มคู่ใหม่
+                        
+                        x_pos = 10 if side == 0 else 105
+                        current_y = pdf.get_y()
+                        
+                        pdf.set_xy(x_pos, current_y)
+                        # วาดกล่องวิชา [ชื่อวิชา | เกรด]
+                        pdf.cell(col_width * 0.7, 8, f" {d['name']}", 1)
+                        pdf.cell(col_width * 0.3, 8, f"{d['grade']}", 1, align='C')
+                        
+                        # เก็บค่า Y สูงสุดไว้เพื่อเลื่อนตำแหน่งหัวข้อถัดไป
+                        max_y = pdf.get_y()
 
-            # สรุปท้ายรายงาน
+                    pdf.set_y(pdf.get_y() + 12) # เว้นระยะห่างก่อนเริ่มหมวดใหม่
+
             pdf.ln(5)
             pdf.set_font("THSarabun", "", 18)
-            pdf.set_text_color(0, 51, 102) # สีน้ำเงินเข้ม
-            pdf.cell(0, 10, f"จำนวนหน่วยกิตสะสมรวม: {total_creds} หน่วยกิต", ln=True)
+            pdf.cell(0, 10, f"หน่วยกิตสะสมรวม: {total_creds} หน่วยกิต", ln=True)
             pdf.cell(0, 10, f"เกรดเฉลี่ยสะสม (GPA): {gpa:.2f}", ln=True)
             
             pdf_bytes = pdf.output()
-            st.download_button(
-                label="📥 ดาวน์โหลดไฟล์ PDF",
-                data=bytes(pdf_bytes),
-                file_name="GPA_Law_Report.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+            st.download_button(label="📥 ดาวน์โหลด PDF", data=bytes(pdf_bytes), file_name="GPA_Law_Report.pdf", mime="application/pdf", use_container_width=True)
         else:
-            st.error("ไม่พบฟอนต์ THSarabunNew.ttf")
+            st.error("ไม่พบฟอนต์")
 else:
     st.info("👈 เลือกวิชาด้านบนเพื่อดูสรุปผล")
