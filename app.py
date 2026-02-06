@@ -31,33 +31,22 @@ def reset_all():
         if key.startswith("chk_") or key.startswith("g_"):
             st.session_state[key] = False if key.startswith("chk_") else "A"
 
-# --- 3. CSS ฉบับ Mobile First (บังคับ Column) ---
+# --- 3. CSS ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stMainBlockContainer { padding-top: 2rem !important; }
-    
-    /* บังคับให้ Grid แสดงผลหลายคอลัมน์แม้ในมือถือ */
-    [data-testid="stExpander"] [data-testid="column"] {
-        flex: 1 1 45% !important; /* บังคับให้กว้างประมาณครึ่งหน้าจอ (2 คอลัมน์) */
-        min-width: 150px !important;
-    }
-    
-    /* ซ่อนลูกศรและแต่ง Dropdown */
+    [data-testid="stExpander"] [data-testid="column"] { flex: 1 1 45% !important; min-width: 150px !important; }
     [data-baseweb="select"] [data-testid="stHeaderActionElements"], svg[class^="StyledIcon"], .stSelectbox svg { display: none !important; }
     div[data-baseweb="select"] { min-height: 28px !important; height: 28px !important; background-color: #f0f2f6 !important; }
     div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { text-align: center !important; font-weight: bold !important; font-size: 14px !important; }
-    
     .stCheckbox { margin-bottom: -10px !important; }
     .result-box { padding: 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center; background-color: white; margin-bottom: 5px; font-size: 11px; }
-    
-    /* ปรับแต่งปุ่มและหัวข้อ */
-    .stButton button { padding: 0px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# ส่วนหัวเรื่อง
+# ส่วนหัว
 head_col1, head_col2 = st.columns([4, 1.5])
 head_col1.title("⚖️ คำนวณเกรดนิติศาสตร์")
 if head_col2.button("♻️ ล้างค่า", on_click=reset_all, use_container_width=True):
@@ -68,10 +57,9 @@ selected_by_cat = {cat: [] for cat in all_courses.keys()}
 # --- 4. ส่วนเลือกวิชา ---
 for cat, courses in all_courses.items():
     with st.expander(f"📂 {cat}", expanded=True):
-        cols = st.columns(4) # ในคอมจะเป็น 4 ในมือถือจะพยายามคงไว้ 2 ด้วย CSS
+        cols = st.columns(4)
         for i, (name, credit) in enumerate(courses.items()):
             with cols[i % 4]:
-                # จัดรูปแบบ [Checkbox][Selectbox] ในบรรทัดเดียว
                 c_row = st.columns([1.2, 1])
                 chk_key = f"chk_{name}"
                 if chk_key not in st.session_state: st.session_state[chk_key] = False
@@ -82,7 +70,7 @@ for cat, courses in all_courses.items():
                     g = c_row[1].selectbox("", list(grade_map.keys()), key=grd_key, label_visibility="collapsed")
                     selected_by_cat[cat].append({"name": name, "credit": credit, "grade": g})
 
-# --- 5. สรุปผล ---
+# --- 5. สรุปผลและสร้าง PDF (Logic ใหม่) ---
 all_selected = [item for sublist in selected_by_cat.values() for item in sublist]
 if all_selected:
     st.divider()
@@ -92,11 +80,10 @@ if all_selected:
 
     st.success(f"### GPA: {gpa:.2f} | รวม {total_creds} หน่วยกิต")
     
-    # แสดงรายชื่อวิชา (ใช้ columns ปกติซึ่งจะเรียงแนวตั้งในมือถือเพื่อให้กดอ่านง่าย)
-    res_cols = st.columns(3) if total_creds > 0 else st.columns(1)
+    res_cols = st.columns(6)
     for idx, item in enumerate(all_selected):
-        with res_cols[idx % (3 if total_creds > 0 else 1)]:
-            st.markdown(f'<div class="result-box">{item["name"]} - <b>{item["grade"]}</b></div>', unsafe_allow_html=True)
+        with res_cols[idx % 6]:
+            st.markdown(f'<div class="result-box">{item["name"]}<br><b>{item["grade"]}</b></div>', unsafe_allow_html=True)
 
     if st.button("🖨️ พิมพ์ PDF", use_container_width=True):
         if os.path.exists("THSarabunNew.ttf"):
@@ -104,23 +91,51 @@ if all_selected:
             pdf.add_page()
             pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
             pdf.set_font("THSarabun", "", 22)
-            pdf.cell(0, 15, "รายงานสรุปผลการเรียน", ln=True, align='C')
-            for c, items in selected_by_cat.items():
-                if items:
-                    pdf.set_font("THSarabun", "", 16); pdf.set_fill_color(230, 230, 230)
-                    pdf.cell(0, 10, f" {c}", ln=True, fill=True)
-                    pdf.set_font("THSarabun", "", 12)
-                    for i, d in enumerate(items):
-                        side = i % 2
-                        if side == 0 and i > 0: pdf.set_y(pdf.get_y() + 8)
-                        pdf.set_xy(10 if side == 0 else 105, pdf.get_y())
-                        pdf.cell(63, 8, f" {d['name']}", 1); pdf.cell(27, 8, f"{d['grade']}", 1, align='C')
-                    pdf.set_y(pdf.get_y() + 12)
-            pdf_bytes = pdf.output()
-            st.download_button("📥 บันทึกไฟล์ PDF", data=bytes(pdf_bytes), file_name="GPA_Law.pdf", mime="application/pdf", use_container_width=True)
+            pdf.cell(0, 15, "รายงานสรุปผลการเรียนนิติศาสตร์", ln=True, align='C')
+            pdf.ln(5)
 
-# --- 6. Footer โดเนท ---
+            for cat, items in selected_by_cat.items():
+                if items:
+                    # หัวข้อกลุ่มวิชา
+                    pdf.set_font("THSarabun", "", 16)
+                    pdf.set_fill_color(240, 240, 240)
+                    pdf.cell(0, 10, f" {cat}", ln=True, fill=True)
+                    pdf.ln(2)
+                    
+                    pdf.set_font("THSarabun", "", 12)
+                    # แบ่ง 2 คอลัมน์ด้วยการคำนวณจำนวนแถว
+                    col1_items = items[::2]
+                    col2_items = items[1::2]
+                    
+                    # วนลูปตามจำนวนแถวที่มากที่สุด
+                    num_rows = max(len(col1_items), len(col2_items))
+                    for r in range(num_rows):
+                        curr_y = pdf.get_y()
+                        # เขียนฝั่งซ้าย
+                        if r < len(col1_items):
+                            pdf.set_xy(10, curr_y)
+                            pdf.cell(65, 8, f" {col1_items[r]['name']}", 1)
+                            pdf.cell(25, 8, f"{col1_items[r]['grade']}", 1, align='C')
+                        
+                        # เขียนฝั่งขวา
+                        if r < len(col2_items):
+                            pdf.set_xy(105, curr_y)
+                            pdf.cell(65, 8, f" {col2_items[r]['name']}", 1)
+                            pdf.cell(25, 8, f"{col2_items[r]['grade']}", 1, align='C')
+                        
+                        pdf.ln(8) # จบบรรทัด
+                    pdf.ln(5) # เว้นระยะก่อนกลุ่มใหม่
+
+            pdf.ln(5)
+            pdf.set_font("THSarabun", "", 18)
+            pdf.cell(0, 10, f"จำนวนหน่วยกิตสะสมรวม: {total_creds} หน่วยกิต", ln=True)
+            pdf.cell(0, 10, f"เกรดเฉลี่ยสะสม (GPA): {gpa:.2f}", ln=True)
+            
+            st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=bytes(pdf.output()), file_name="GPA_Law_Report.pdf", mime="application/pdf", use_container_width=True)
+        else:
+            st.error("ไม่พบฟอนต์")
+
+# --- 6. Footer ---
 st.markdown("---")
-st.markdown('<p style="text-align:center; color:#888;">โปรแกรมนี้ใช้ฟรี! หากต้องการสนับสนุนผู้พัฒนา</p>', unsafe_allow_html=True)
 if st.button("🧧 สนับสนุนค่าน้ำชา / โดเนท", use_container_width=True):
     donate_dialog()
