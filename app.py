@@ -2,134 +2,137 @@ import streamlit as st
 import os
 
 # --- 1. ข้อมูลวิชาและตารางสอบ (Database) ---
+# โครงสร้าง: "รหัสวิชา": [หน่วยกิต, "วันสอบ", "คาบ", "ชื่อวิชา", "หมวดหมู่"]
 all_courses_db = {
     # หมวด RAM
-    "RAM1101": [3, "4", "A", "ไทย", "RAM"], "RAM1111": [3, "4", "B", "อังกฤษ 1", "RAM"],
-    "RAM1112": [3, "3", "B", "อังกฤษ 2", "RAM"], "RAM1132": [3, "3", "A", "ห้องสมุด", "RAM"],
-    "RAM1141": [3, "2", "A", "บุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
-    "RAM1213": [3, "3", "A", "วิชา RAM", "RAM"], "RAM1301": [3, "4", "B", "คุณธรรม", "RAM"],
-    "RAM1303": [3, "2", "B", "วิทยาศาสตร์", "RAM"], "RAM1312": [3, "4", "B", "วิชา RAM", "RAM"],
+    "RAM1101": [3, "4", "A", "Thai", "RAM"], "RAM1111": [3, "4", "B", "Eng 1", "RAM"],
+    "RAM1112": [3, "3", "B", "Eng 2", "RAM"], "RAM1132": [3, "3", "A", "Library", "RAM"],
+    "RAM1141": [3, "2", "A", "Personality", "RAM"], "RAM1204": [3, "3", "B", "Thinking", "RAM"],
+    "RAM1213": [3, "3", "A", "RAM Subject", "RAM"], "RAM1301": [3, "4", "B", "Morality", "RAM"],
+    "RAM1303": [3, "2", "B", "Science", "RAM"], "RAM1312": [3, "4", "B", "RAM Subject", "RAM"],
     # หมวด LAW
-    "LAW1101": [2, "2", "A", "มหาชน", "LAW"], "LAW1102": [2, "4", "A", "เอกชน", "LAW"],
-    "LAW1103": [3, "2", "A", "นิติกรรม", "LAW"], "LAW2101": [3, "2", "B", "ทรัพย์", "LAW"],
-    "LAW2102": [3, "3", "A", "หนี้", "LAW"], "LAW2104": [3, "2", "B", "รธน.", "LAW"],
-    "LAW2105": [3, "4", "A", "ซื้อขาย", "LAW"], "LAW2106": [3, "4", "A", "อาญา 1", "LAW"],
-    "LAW2107": [3, "1", "B", "อาญา 2", "LAW"], "LAW2109": [3, "3", "B", "ยืม ฝาก", "LAW"],
-    "LAW2110": [2, "1", "B", "ค้ำ จำนำ", "LAW"], "LAW2111": [2, "3", "A", "ตัวแทน", "LAW"],
-    "LAW2112": [2, "4", "B", "ประกัน", "LAW"], "LAW2113": [3, "2", "A", "ตั๋วเงิน", "LAW"],
-    "LAW2108": [2, "1", "A", "เช่า จ้าง", "LAW"], "LAW3101": [2, "1", "A", "อาญา 3", "LAW"],
-    "LAW3102": [3, "4", "B", "หุ้นส่วน", "LAW"], "LAW3103": [3, "1", "B", "ครอบครัว", "LAW"],
-    "LAW3104": [2, "3", "A", "ธรรมนูญศาล", "LAW"], "LAW3105": [3, "1", "B", "วิ.แพ่ง 1", "LAW"],
-    "LAW3106": [3, "4", "B", "วิอาญา 1", "LAW"], "LAW3109": [3, "3", "B", "มรดก", "LAW"],
-    "LAW3110": [2, "1", "A", "ล้มละลาย", "LAW"], "LAW3111": [3, "2", "A", "พยาน", "LAW"],
-    "LAW3112": [3, "1", "B", "ปกครอง", "LAW"], "LAW3117": [2, "1", "A", "ป.วิมหาชน", "LAW"],
-    "LAW4101": [2, "1", "A", "ภาษี", "LAW"], "LAW4102": [3, "2", "B", "ว่าความ", "LAW"],
-    "LAW4103": [3, "4", "A", "คดีเมือง", "LAW"], "LAW4104": [2, "2", "B", "แรงงาน", "LAW"],
-    "LAW4105": [2, "2", "A", "วิชาชีพทนาย", "LAW"], "LAW4106": [2, "3", "A", "คดีบุคคล", "LAW"],
-    "LAW4107": [2, "2", "B", "ปรัชญา", "LAW"], "LAW4108": [3, "2", "B", "ที่ดิน", "LAW"],
-    "LAW4109": [3, "4", "A", "ทรัพย์สินทางปัญญา", "LAW"], "LAW4110": [2, "1", "A", "ค้าระหว่างประเทศ", "LAW"],
+    "LAW1101": [2, "2", "A", "Public Law", "LAW"], "LAW1102": [2, "4", "A", "Private Law", "LAW"],
+    "LAW1103": [3, "2", "A", "Juristic Acts", "LAW"], "LAW2101": [3, "2", "B", "Property", "LAW"],
+    "LAW2102": [3, "3", "A", "Obligations", "LAW"], "LAW2104": [3, "2", "B", "Constitutional", "LAW"],
+    "LAW2105": [3, "4", "A", "Sale", "LAW"], "LAW2106": [3, "4", "A", "Criminal 1", "LAW"],
+    "LAW2107": [3, "1", "B", "Criminal 2", "LAW"], "LAW2109": [3, "3", "B", "Loan", "LAW"],
+    "LAW2110": [2, "1", "B", "Suretyship", "LAW"], "LAW2111": [2, "3", "A", "Agency", "LAW"],
+    "LAW2112": [2, "4", "B", "Insurance", "LAW"], "LAW2113": [3, "2", "A", "Bills of Exchange", "LAW"],
+    "LAW2108": [2, "1", "A", "Hire of Property", "LAW"], "LAW3101": [2, "1", "A", "Criminal 3", "LAW"],
+    "LAW3102": [3, "4", "B", "Partnership", "LAW"], "LAW3103": [3, "1", "B", "Family", "LAW"],
+    "LAW3104": [2, "3", "A", "Court Organization", "LAW"], "LAW3105": [3, "1", "B", "Civil Pro 1", "LAW"],
+    "LAW3106": [3, "4", "B", "Crim Pro 1", "LAW"], "LAW3109": [3, "3", "B", "Succession", "LAW"],
+    "LAW3110": [2, "1", "A", "Bankruptcy", "LAW"], "LAW3111": [3, "2", "A", "Evidence", "LAW"],
+    "LAW3112": [3, "1", "B", "Administrative", "LAW"], "LAW3117": [2, "1", "A", "Public Pro", "LAW"],
+    "LAW4101": [2, "1", "A", "Tax", "LAW"], "LAW4102": [3, "2", "B", "Legal Practice", "LAW"],
+    "LAW4103": [3, "4", "A", "Conflict of Laws", "LAW"], "LAW4104": [2, "2", "B", "Labor", "LAW"],
+    "LAW4105": [2, "2", "A", "Legal Ethics", "LAW"], "LAW4106": [2, "3", "A", "Human Rights", "LAW"],
+    "LAW4107": [2, "2", "B", "Philosophy", "LAW"], "LAW4108": [3, "2", "B", "Land", "LAW"],
+    "LAW4109": [3, "4", "A", "Intellectual Prop", "LAW"], "LAW4110": [2, "1", "A", "Int Trade", "LAW"],
     # หมวดเลือก
-    "LAW3133": [3, "3", "B", "อาชญากร", "ELECTIVE"], "LAW3138": [2, "1", "B", "เด็ก", "ELECTIVE"],
-    "LAW4134": [2, "1", "B", "ทะเล", "ELECTIVE"], "LAW4156": [2, "2", "A", "อิ้งกฎหมาย", "ELECTIVE"],
-    "วิชาเลือก 1": [3, "0", "0", "เลือกเสรี 1", "ELECTIVE"], "วิชาเลือก 2": [3, "0", "0", "เลือกเสรี 2", "ELECTIVE"]
+    "LAW3133": [3, "3", "B", "Criminology", "ELECTIVE"], "LAW3138": [2, "1", "B", "Child", "ELECTIVE"],
+    "LAW4134": [2, "1", "B", "Sea", "ELECTIVE"], "LAW4156": [2, "2", "A", "Legal Eng", "ELECTIVE"],
+    "Free 1": [3, "0", "0", "Free Elective 1", "ELECTIVE"], "Free 2": [3, "0", "0", "Free Elective 2", "ELECTIVE"]
 }
 
 st.set_page_config(page_title="Easy Law Planner", layout="wide")
 
 # --- 2. Initialize Session State ---
 if "study_plan" not in st.session_state:
-    st.session_state.study_plan = {f"ปี {y} ภาค {t}": [] for y in range(1, 5) for t in ["1", "2", "S"]}
+    st.session_state.study_plan = {f"Year {y} Term {t}": [] for y in range(1, 5) for t in ["1", "2", "S"]}
+if "current_term" not in st.session_state:
+    st.session_state.current_term = "Year 1 Term 1"
 
 # --- 3. CSS ---
 st.markdown("""
     <style>
-    .course-btn { margin: 2px; }
-    .term-box { background-color: #f0f2f6; padding: 10px; border-radius: 10px; border: 1px solid #ddd; }
-    .stButton>button { width: 100%; text-align: left; padding: 5px; font-size: 14px; }
+    .stButton>button { width: 100%; text-align: left; padding: 5px; font-size: 13px; margin-bottom: 2px; }
+    .term-container { background-color: #f8f9fa; padding: 15px; border-radius: 10px; border: 1px solid #eee; }
+    .header-style { color: #1f77b4; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ ระบบวางแผนเรียนนิติศาสตร์")
+st.title("Law GPA & Planning Tool")
 
-tab1, tab2 = st.tabs(["📊 คำนวณ GPA", "📅 วางแผนลงทะเบียน"])
+tab1, tab2 = st.tabs(["GPA Calculation", "Registration Planner"])
 
 with tab1:
-    st.write("ส่วนคำนวณเกรดเดิม...") # (ใส่ Logic เดิมของคุณที่นี่)
+    st.info("GPA calculation section (as previous version)")
+    # Logic เดิมสำหรับคำนวณเกรดสามารถยกมาวางที่นี่ได้
 
 with tab2:
-    col1, col2 = st.columns([1, 2])
+    # ส่วนหัวสำหรับเลือกเทอมที่จะจัด
+    st.subheader("Plan Your Semester")
+    col_term1, col_term2 = st.columns([2, 1])
     
-    with col1:
-        st.subheader("📚 คลังวิชาทั้งหมด")
-        # กรองวิชาที่ถูกเลือกไปแล้วออก
+    with col_term1:
+        st.session_state.current_term = st.selectbox(
+            "Select Term to Add Subjects:", 
+            list(st.session_state.study_plan.keys()),
+            key="term_selector"
+        )
+    
+    with col_term2:
+        is_grad = st.toggle("Graduation Request (30 Credits / Double Exam)")
+
+    st.divider()
+
+    col_left, col_right = st.columns([1, 1])
+
+    with col_left:
+        st.markdown("<p class='header-style'>Available Subjects (Click to Add)</p>", unsafe_allow_html=True)
+        
+        # กรองวิชาที่ใช้ไปแล้ว
         used_subs = [item for sublist in st.session_state.study_plan.values() for item in sublist]
         
-        cat_filter = st.selectbox("เลือกหมวดหมู่", ["RAM", "LAW", "ELECTIVE"])
+        cat = st.radio("Category:", ["RAM", "LAW", "ELECTIVE"], horizontal=True)
         
-        for code, info in all_courses_db.items():
-            if info[4] == cat_filter and code not in used_subs:
-                label = f"{code} | {info[3]} ({info[1]}{info[2]})"
-                if st.button(f"➕ {label}", key=f"add_{code}"):
-                    # รับเทอมที่เลือกจากฝั่งขวามาใส่
-                    target = st.session_state.current_term
-                    st.session_state.study_plan[target].append(code)
-                    st.rerun()
+        # แสดงวิชาในหมวดที่เลือก
+        cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == cat and k not in used_subs}
+        
+        for code, info in cat_courses.items():
+            exam_info = f"({info[1]}{info[2]})" if info[1] != "0" else ""
+            if st.button(f"ADD: {code} {info[3]} {exam_info}", key=f"btn_add_{code}"):
+                st.session_state.study_plan[st.session_state.current_term].append(code)
+                st.rerun()
 
-    with col2:
-        st.subheader("📅 แผนการเรียนของคุณ")
+    with col_right:
+        st.markdown(f"<p class='header-style'>Current Plan: {st.session_state.current_term}</p>", unsafe_allow_html=True)
         
-        # เลือกเทอมที่ต้องการจัด
-        all_terms = list(st.session_state.study_plan.keys())
-        st.session_state.current_term = st.selectbox("เลือกเทอมที่กำลังจัด:", all_terms, index=0)
+        current_list = st.session_state.study_plan[st.session_state.current_term]
         
-        is_grad = st.toggle("🎓 ขอจบการศึกษา (ลงได้ 30 นก. / สอบซ้ำซ้อน)")
-        
-        # แสดงวิชาในเทอมที่เลือก
-        target_term = st.session_state.current_term
-        st.info(f"กำลังจัด: **{target_term}**")
-        
-        selected_in_term = st.session_state.study_plan[target_term]
-        
-        if not selected_in_term:
-            st.write("ยังไม่มีวิชาในเทอมนี้ คลิกปุ่มด้านซ้ายเพื่อเพิ่ม")
+        if not current_list:
+            st.write("No subjects added. Click 'ADD' from the left panel.")
         else:
-            total_c = 0
-            exam_days = {}
-            for sub in selected_in_term:
+            total_credits = 0
+            exam_check = {}
+            
+            for sub in current_list:
                 info = all_courses_db[sub]
-                total_c += info[0]
+                total_credits += info[0]
                 
                 # แสดงวิชาพร้อมปุ่มลบ
-                c1, c2 = st.columns([4, 1])
-                c1.write(f"✅ **{sub}** {info[3]} (สอบ: {info[1]}{info[2]})")
-                if c2.button("🗑️", key=f"del_{sub}"):
-                    st.session_state.study_plan[target_term].remove(sub)
+                c_sub, c_del = st.columns([5, 1])
+                c_sub.write(f"**{sub}** - {info[3]} ({info[1]}{info[2]})")
+                if c_del.button("DEL", key=f"btn_del_{sub}"):
+                    st.session_state.study_plan[st.session_state.current_term].remove(sub)
                     st.rerun()
                 
-                # เช็กสอบชน
+                # ตรวจสอบสอบชน
                 d_code = f"{info[1]}{info[2]}"
                 if d_code != "00":
-                    if d_code in exam_days:
-                        if is_grad: st.warning(f"⚠️ สอบชน: {sub} กับ {exam_days[d_code]}")
-                        else: st.error(f"❌ สอบชน: {sub} กับ {exam_days[d_code]}!")
-                    exam_days[d_code] = sub
+                    if d_code in exam_check:
+                        if is_grad: st.warning(f"Warning: Exam Conflict {sub} with {exam_check[d_code]}")
+                        else: st.error(f"Error: Exam Conflict {sub} with {exam_check[d_code]}!")
+                    exam_check[d_code] = sub
 
-            # เช็กเงื่อนไขหน่วยกิต
-            max_c = 30 if is_grad else (9 if "ภาค S" in target_term else 22)
-            st.metric("หน่วยกิตรวมเทอมนี้", f"{total_c} / {max_c}")
-            if total_c > max_c: st.error("หน่วยกิตเกิน!")
+            # สรุปหน่วยกิต
+            max_c = 30 if is_grad else (9 if "Term S" in st.session_state.current_term else 22)
+            st.metric("Total Credits", f"{total_credits} / {max_c}")
+            if total_credits > max_c:
+                st.error("Too many credits for this term!")
 
-        st.divider()
-        if st.button("♻️ ล้างแผนทั้งหมด (Reset)"):
-            st.session_state.study_plan = {f"ปี {y} ภาค {t}": [] for y in range(1, 5) for t in ["1", "2", "S"]}
-            st.rerun()
-
-
-
-### 💡 วิธีใช้งาน UI ใหม่นี้:
-1.  **ด้านซ้าย (คลังวิชา):** คือ "บุฟเฟต์วิชา" คุณไม่ต้องพิมพ์หา แค่เลือกหมวดหมู่ แล้วกดปุ่ม **[➕ รหัสวิชา]** วิชานั้นจะเด้งไปอยู่ในเทอมที่คุณเลือกไว้ทันที
-2.  **วิชาจะหายไปเอง:** เมื่อคุณกดเลือกวิชาไหนเข้าแผนไปแล้ว วิชานั้นจะหายไปจากรายการด้านซ้ายโดยอัตโนมัติ (กันหลง กันลงซ้ำ)
-3.  **ด้านขวา (พื้นที่จัดตาราง):** คุณเลือกเทอมก่อน (เช่น ปี 1 ภาค 2) แล้วก็กดเพิ่มวิชาจากด้านซ้ายเข้ามา ถ้าเปลี่ยนใจก็กดปุ่มถังขยะ **[🗑️]** เพื่อเอามันกลับไปที่คลังวิชาด้านซ้าย
-4.  **เช็กสอบชนเรียลไทม์:** เมื่อคุณกดเพิ่มวิชา ระบบจะคำนวณทันทีว่าชนกับวิชาที่มีอยู่แล้วในเทอมนั้นหรือไม่
-
-แบบนี้จะทำให้การจัดตารางเหมือนการ "ช้อปปิ้ง" วิชาเรียน ซึ่งง่ายกว่าการคอยเลือกจาก Dropdown เยอะเลยครับ ลองเอาไปรันดูนะครับ! อยากให้ปรับสีปุ่มหรือเพิ่มส่วนไหนอีกไหม?
+    st.divider()
+    if st.button("Reset All Plans"):
+        st.session_state.study_plan = {f"Year {y} Term {t}": [] for y in range(1, 5) for t in ["1", "2", "S"]}
+        st.rerun()
