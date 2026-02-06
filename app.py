@@ -2,7 +2,7 @@ import streamlit as st
 from fpdf import FPDF
 import os
 
-# ข้อมูลวิชา (140 นก. เป๊ะตามที่คุยกัน)
+# ข้อมูลวิชา (140 นก.)
 all_courses = {
     "หมวดวิชา RAM (30 นก.)": {
         "RAM1103": 3, "RAM1111": 3, "RAM1112": 3, "RAM1132": 3, 
@@ -29,27 +29,40 @@ all_courses = {
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="GPA Law Compact", layout="wide") # ใช้หน้ากว้าง
-st.title("⚖️ คำนวณเกรดนิติศาสตร์ (Compact UI)")
+st.set_page_config(page_title="GPA Ultra Compact", layout="wide")
+
+# CSS เพื่อลดระยะห่างระหว่าง Element ให้ชิดกันยิ่งขึ้น
+st.markdown("""
+    <style>
+    [data-testid="column"] {
+        padding: 0px 5px !important;
+    }
+    .stSelectbox div[data-baseweb="select"] {
+        min-height: 30px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title("⚖️ คำนวณเกรดนิติศาสตร์ (Ultra Compact)")
 
 if "selected" not in st.session_state:
     st.session_state.selected = {}
 
-# --- ส่วนเลือกวิชา (แสดงผลแบบ Grid 4 คอลัมน์เพื่อความไว) ---
+# --- ส่วนเลือกวิชา (Grid 5 คอลัมน์) ---
 for cat, courses in all_courses.items():
-    with st.expander(f"📂 {cat}", expanded=(cat=="หมวดวิชา RAM (30 นก.)")):
-        cols = st.columns(4)
+    with st.expander(f"📂 {cat}"):
+        cols = st.columns(5)
         for i, (name, credit) in enumerate(courses.items()):
-            with cols[i % 4]:
+            with cols[i % 5]:
                 if st.checkbox(f"{name}", key=f"chk_{name}"):
                     st.session_state.selected[name] = credit
                 else:
                     st.session_state.selected.pop(name, None)
 
-# --- ส่วนกรอกเกรด (ปรับให้กระชับที่สุด) ---
+# --- ส่วนกรอกเกรด (Grid 4 คอลัมน์ + ชิดหน้ากระดาษ) ---
 if st.session_state.selected:
     st.markdown("---")
-    st.subheader("📝 ระบุเกรดวิชาที่เลือก")
+    st.subheader("📝 ระบุเกรด")
     
     selected_sorted = dict(sorted(st.session_state.selected.items()))
     items = list(selected_sorted.items())
@@ -57,19 +70,23 @@ if st.session_state.selected:
     total_creds, total_score = 0, 0
     pdf_list = []
 
-    # แสดงผล 3 ชุดต่อ 1 แถว
-    rows = (len(items) + 2) // 3
+    # แสดงผล 4 วิชาต่อ 1 แถวเพื่อความประหยัดพื้นที่
+    rows = (len(items) + 3) // 4
     for r in range(rows):
-        cols = st.columns(3) # แบ่งเป็น 3 คอลัมน์ใหญ่
-        for c in range(3):
-            idx = r * 3 + c
+        cols = st.columns(4)
+        for c in range(4):
+            idx = r * 4 + c
             if idx < len(items):
                 name, credit = items[idx]
                 with cols[c]:
-                    # ในแต่ละวิชา แบ่งย่อยเป็น [ชื่อวิชา, ช่องเกรด] ให้ชิดกัน
-                    c1, c2 = st.columns([2, 1])
-                    c1.markdown(f"**{name}** ({credit})")
-                    g_letter = c2.selectbox("Grade", list(grade_map.keys()), key=f"grd_{name}", label_visibility="collapsed")
+                    # จัดวางแบบแนวนอน ชิดกันที่สุด
+                    inner_cols = st.columns([1.2, 1])
+                    inner_cols[0].markdown(f"**{name}**")
+                    g_letter = inner_cols[1].selectbox(
+                        "G", list(grade_map.keys()), 
+                        key=f"grd_{name}", 
+                        label_visibility="collapsed"
+                    )
                     
                     total_creds += credit
                     total_score += grade_map[g_letter] * credit
@@ -77,9 +94,9 @@ if st.session_state.selected:
 
     if total_creds > 0:
         gpa = total_score / total_creds
-        st.info(f"### GPA: {gpa:.2f} | รวม {total_creds} หน่วยกิต")
+        st.success(f"### GPA: {gpa:.2f} | {total_creds} หน่วยกิต")
 
-        # ปุ่ม PDF
+        # ส่วน PDF
         if st.button("🖨️ พิมพ์ PDF"):
             if os.path.exists("THSarabunNew.ttf"):
                 pdf = FPDF()
@@ -87,19 +104,13 @@ if st.session_state.selected:
                 pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
                 pdf.set_font("THSarabun", "", 24)
                 pdf.cell(0, 15, "สรุปผลการเรียนนิติศาสตร์", ln=True, align='C')
-                
                 pdf.set_font("THSarabun", "", 14)
-                # หัวตาราง PDF
-                pdf.cell(60, 10, "รหัสวิชา", 1); pdf.cell(60, 10, "หน่วยกิต", 1); pdf.cell(60, 10, "เกรด", 1, ln=True)
-                
+                # ตาราง 3 คอลัมน์ใน PDF
+                pdf.cell(60, 10, "วิชา", 1); pdf.cell(60, 10, "หน่วยกิต", 1); pdf.cell(60, 10, "เกรด", 1, ln=True)
                 for item in pdf_list:
-                    pdf.cell(60, 10, f" {item[0]}", 1)
-                    pdf.cell(60, 10, f" {item[1]}", 1)
-                    pdf.cell(60, 10, f" {item[2]}", 1, ln=True)
-                
+                    pdf.cell(60, 8, f" {item[0]}", 1)
+                    pdf.cell(60, 8, f" {item[1]}", 1)
+                    pdf.cell(60, 8, f" {item[2]}", 1, ln=True)
                 pdf.ln(5)
-                pdf.set_font("THSarabun", "", 18)
-                pdf.cell(0, 10, f"หน่วยกิตรวม: {total_creds}  |  GPA: {gpa:.2f}", ln=True)
-                st.download_button("📥 โหลดไฟล์ PDF", data=pdf.output(), file_name="GPA_Compact.pdf")
-            else:
-                st.error("ไม่พบไฟล์ฟอนต์ THSarabunNew.ttf")
+                pdf.cell(0, 10, f"รวม {total_creds} หน่วยกิต | GPA: {gpa:.2f}", ln=True)
+                st.download_button("📥 โหลดไฟล์ PDF", data=pdf.output(), file_name="GPA_Ultra.pdf")
