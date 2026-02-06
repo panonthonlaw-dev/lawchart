@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 
-# --- 1. Database (ตรวจสอบหน่วยกิตและคาบสอบเป๊ะ 100%) ---
+# --- 1. Database (ล็อกหน่วยกิตมาตรฐาน มร.) ---
 all_courses_db = {
     "RAM1101": [3, "4", "A", "ภาษาไทย", "RAM"], "RAM1111": [3, "4", "B", "อังกฤษ 1", "RAM"],
     "RAM1112": [3, "3", "B", "อังกฤษ 2", "RAM"], "RAM1132": [3, "3", "A", "การใช้ห้องสมุด", "RAM"],
@@ -26,64 +26,65 @@ all_courses_db = {
     "LAW4105": [2, "2", "A", "วิชาชีพทนาย", "LAW"], "LAW4106": [2, "3", "A", "สิทธิมนุษยชน", "LAW"],
     "LAW4107": [2, "2", "B", "ปรัชญา", "LAW"], "LAW4108": [3, "2", "B", "ที่ดิน", "LAW"],
     "LAW4109": [3, "4", "A", "ทรัพย์สินทางปัญญา", "LAW"], "LAW4110": [2, "1", "A", "ค้าระหว่างประเทศ", "LAW"],
-    "LAW3133": [3, "3", "B", "อาชญากร", "ELECTIVE"], "LAW3138": [2, "1", "B", "เด็ก", "ELECTIVE"],
-    "LAW4134": [2, "1", "B", "ทะเล", "ELECTIVE"], "LAW4156": [2, "2", "A", "อิ้งกฎหมาย", "ELECTIVE"],
     "วิชาเลือก 1": [3, "1", "A", "เลือกเสรี 1", "ELECTIVE"], "วิชาเลือก 2": [3, "1", "B", "เลือกเสรี 2", "ELECTIVE"]
 }
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="Ultimate Law GPA & Planner", layout="wide")
+st.set_page_config(page_title="Safe Law GPA & Planner", layout="wide")
 
-# --- 2. State Management (กันวิชาหาย) ---
+# --- 2. Initialize State ---
 if "study_plan" not in st.session_state:
     st.session_state.study_plan = {f"Y{y}T{t}": {s: "-" for s in ["1A","1B","2A","2B","3A","3B","4A","4B"]} 
                                   for y in range(1, 5) for t in ["1", "2", "S"]}
+if "slot_v" not in st.session_state:
+    st.session_state.slot_v = {f"Y{y}T{t}_{s}": 0 for y in range(1, 5) for t in ["1", "2", "S"] for s in ["1A","1B","2A","2B","3A","3B","4A","4B"]}
 
-# --- 3. CSS (ตัวหนังสือดำเข้ม 100%) ---
+# --- 3. CSS (ล็อกสีตัวหนังสือดำชัดเจน) ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .overall-table { width: 100%; border-collapse: collapse; background-color: #ffffff; }
+    .overall-table { width: 100%; border-collapse: collapse; background-color: #ffffff; color: #000 !important; }
     .overall-table th, .overall-table td { border: 2px solid #000; padding: 6px; color: #000 !important; vertical-align: top; }
     .overall-table th { background-color: #1e3a8a; color: #fff !important; }
     .sub-tag { background: #e0f2fe; padding: 2px 4px; border-radius: 4px; display: block; margin-bottom: 2px; border-left: 3px solid #0369a1; font-size: 11px; color: #000 !important; font-weight: bold; }
-    .summary-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; padding: 10px 0; }
     .result-box { width: 95px; padding: 5px; border: 2px solid #000; border-radius: 5px; text-align: center; background-color: #fff !important; color: #000 !important; }
     .result-box b { color: #d32f2f !important; font-size: 18px; }
-    .credit-alert { color: #fff !important; font-weight: bold; background: #d32f2f; padding: 8px; border-radius: 5px; }
+    .stButton>button { width: 100%; height: 28px; font-size: 12px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     p, span, label, .stMetric { color: #000 !important; font-weight: bold !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 4. Functions ---
+def clear_one(tk, sn):
+    st.session_state.study_plan[tk][sn] = "-"
+    st.session_state.slot_v[f"{tk}_{sn}"] += 1
+
 def clear_all_plan():
     for tk in st.session_state.study_plan:
         for sn in st.session_state.study_plan[tk]:
             st.session_state.study_plan[tk][sn] = "-"
+            st.session_state.slot_v[f"{tk}_{sn}"] += 1
 
-@st.dialog("🧧 สนับสนุนค่าน้ำชาผู้พัฒนา")
+@st.dialog("🧧 สนับสนุนค่าน้ำชา")
 def show_donate():
-    st.write("ขอบคุณที่สนับสนุนครับ! กด X มุมขวาเพื่อปิด")
+    st.write("ขอบคุณครับ! กด X เพื่อปิด")
     for ext in ["jpg", "jpeg", "png"]:
         if os.path.exists(f"donate.{ext}"):
             st.image(f"donate.{ext}", use_container_width=True); break
-    else: st.error("ไม่พบรูป QR Code")
 
-st.title("⚖️ ระบบคำนวณ GPA & วางแผนเรียนนิติศาสตร์")
+st.title("⚖️ ระบบ GPA & วางแผนเรียนนิติศาสตร์")
 tab1, tab2 = st.tabs(["📊 คำนวณเกรดสะสม (GPA)", "📅 วางแผนลงทะเบียน 4 ปี"])
 
 # --- TAB 1: GPA ---
 with tab1:
-    st.info("ติ๊กวิชาที่สอบผ่านแล้วเพื่อคำนวณ GPA")
     selected_gpa = []
-    cats = {"📂 หมวด RAM": "RAM", "📂 หมวด LAW": "LAW", "📂 หมวดวิชาเลือก": "ELECTIVE"}
-    for label, cp in cats.items():
+    for label, cp in {"📂 หมวด RAM": "RAM", "📂 หมวด LAW": "LAW", "📂 หมวดวิชาเลือก": "ELECTIVE"}.items():
         with st.expander(label, expanded=(cp == "LAW")):
             cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == cp}
-            gpa_cols = st.columns(4)
+            cols = st.columns(4)
             for idx, (code, info) in enumerate(cat_courses.items()):
-                with gpa_cols[idx % 4]:
+                with cols[idx % 4]:
                     r = st.columns([1.2, 1])
                     if r[0].checkbox(code, key=f"gpa_chk_{code}"):
                         g = r[1].selectbox("G", ["A","B+","B","C+","C","D+","D","F"], key=f"gpa_sel_{code}", label_visibility="collapsed")
@@ -92,31 +93,33 @@ with tab1:
         st.divider()
         tc = sum(d['credit'] for d in selected_gpa); tp = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
         st.success(f"### GPA สะสม: {tp/tc:.2f} | รวม {tc} หน่วยกิต")
-        h = '<div class="summary-grid">'
+        h = '<div style="display:flex; flex-wrap:wrap; gap:8px;">'
         for d in selected_gpa: h += f'<div class="result-box"><span>{d["name"]}</span><br><b>{d["grade"]}</b></div>'
         st.markdown(h + '</div>', unsafe_allow_html=True)
 
-# --- TAB 2: วางแผน (8 Slot + วิชาไม่หาย) ---
+# --- TAB 2: วางแผน (ล็อกหน่วยกิตให้นิ่ง) ---
 with tab2:
     c1, c2, c3 = st.columns(3)
-    yr = c1.selectbox("ปีการศึกษา", [1, 2, 3, 4]); tm = c2.selectbox("เทอม", ["1", "2", "S"])
+    yr = c1.selectbox("ปีการศึกษา", [1, 2, 3, 4], key="y_sel")
+    tm = c2.selectbox("เทอม", ["1", "2", "S"], key="t_sel")
     grad = c3.toggle("🎓 ขอจบ (ลงได้สูงสุด 30/12 นก.)")
     curr_tk = f"Y{yr}T{tm}"
 
-    # คำนวณหน่วยกิตทันทีจาก State
-    curr_c = sum([all_courses_db.get(v.split(" | ")[0], [0])[0] for v in st.session_state.study_plan[curr_tk].values() if v != "-"])
-    max_c = (12 if tm == "S" else 30) if grad else (9 if tm == "S" else 22)
+    # คำนวณหน่วยกิตรวม (Single Source of Truth)
+    total_credits_now = 0
+    for val in st.session_state.study_plan[curr_tk].values():
+        if val != "-":
+            c_code = val.split(" | ")[0]
+            total_credits_now += all_courses_db.get(c_code, [0])[0]
 
+    limit = (12 if tm == "S" else 30) if grad else (9 if tm == "S" else 22)
     st.markdown(f"### 📍 ปี {yr} เทอม {tm}")
-    if curr_c > max_c:
-        st.markdown(f'<div class="credit-alert">⚠️ ลงเกิน! เทอม {tm} ลงได้ไม่เกิน {max_c} นก. (ตอนนี้ {curr_c})</div>', unsafe_allow_html=True)
-    else:
-        st.metric("หน่วยกิตรวมเทอมนี้", f"{curr_c} / {max_c}")
+    if total_credits_now > limit:
+        st.error(f"⚠️ หน่วยกิตเกิน! ลงได้ {limit} นก. (ตอนนี้ลงไป {total_credits_now})")
+    else: st.metric("หน่วยกิตรวมเทอมนี้", f"{total_credits_now} / {limit}")
 
     st.divider()
-    # กันลงซ้ำข้ามเทอม
     used = [v.split(" | ")[0] for tk, s in st.session_state.study_plan.items() if tk != curr_tk for v in s.values() if v != "-"]
-
     slots = ["1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
     rows = st.columns(4)
     for i, sn in enumerate(slots):
@@ -124,33 +127,33 @@ with tab2:
             st.markdown(f"**📌 คาบ {sn}**")
             valid = ["-"] + [f"{c} | {all_courses_db[c][3]}" for c in all_courses_db if all_courses_db[c][1] == sn[0] and all_courses_db[c][2] == sn[1] and c not in used]
             
-            # ดึงค่าจาก state เพื่อให้วิชาไม่หาย
-            saved_val = st.session_state.study_plan[curr_tk][sn]
-            if saved_val not in valid: saved_val = "-"
+            v_k = f"{curr_tk}_{sn}"
+            choice = st.selectbox(f"S_{sn}", options=valid, index=valid.index(st.session_state.study_plan[curr_tk][sn]) if st.session_state.study_plan[curr_tk][sn] in valid else 0, key=f"w_{v_k}_v{st.session_state.slot_v[v_k]}", label_visibility="collapsed")
             
-            # แสดงสล็อต (ลบวิชาได้โดยการเลือก "-")
-            choice = st.selectbox(f"S_{sn}", options=valid, index=valid.index(saved_val), key=f"widget_{curr_tk}_{sn}", label_visibility="collapsed")
-            st.session_state.study_plan[curr_tk][sn] = choice
+            # บันทึกค่าลง State
+            if st.session_state.study_plan[curr_tk][sn] != choice:
+                st.session_state.study_plan[curr_tk][sn] = choice
+                st.rerun() # บังคับให้คำนวณใหม่ทันทีที่เปลี่ยน
+            
+            if choice != "-":
+                st.button(f"🗑️ ลบ {sn}", key=f"del_{v_k}", on_click=clear_one, args=(curr_tk, sn))
 
-    # --- ตารางสรุปภาพรวม 4 ปี ---
+    # ตารางสรุป 4 ปี
     st.divider()
     st.markdown("### 🗓️ ตารางสรุปแผนการเรียนภาพรวม 4 ปี")
     
-    html = "<table class='overall-table'><tr><th>ชั้นปี</th><th>เทอม 1</th><th>เทอม 2</th><th>เทอม S</th></tr>"
+    html = "<table class='overall-table'><tr><th>ปี</th><th>เทอม 1</th><th>เทอม 2</th><th>เทอม S</th></tr>"
     for y in range(1, 5):
-        html += f"<tr><td><b>ปีที่ {y}</b></td>"
+        html += f"<tr><td><b>ปี {y}</b></td>"
         for t in ["1", "2", "S"]:
             tk = f"Y{y}T{t}"; cell, tc = "", 0
             for sn, val in st.session_state.study_plan[tk].items():
                 if val != "-":
-                    c = val.split(" | ")[0]; u_c = all_courses_db.get(c, [0])[0]
-                    cell += f"<span class='sub-tag'>{sn}: {val}</span>"; tc += u_c
-            limit = 9 if t == "S" else 22
-            c_style = "color:red; font-weight:bold;" if tc > limit else "color:black;"
-            html += f"<td>{cell}<span style='{c_style}'>รวม {tc} นก.</span></td>"
+                    c = val.split(" | ")[0]; cell += f"<span class='sub-tag'>{sn}: {val}</span>"; tc += all_courses_db.get(c, [0])[0]
+            html += f"<td>{cell}<b style='color:#000'>รวม {tc} นก.</b></td>"
         html += "</tr>"
     st.markdown(html + "</table>", unsafe_allow_html=True)
-    st.button("♻️ ล้างแผนทั้งหมดทุกปี", on_click=clear_all_plan)
+    st.button("♻️ ล้างแผนทั้งหมด", on_click=clear_all_plan)
 
 st.markdown("---")
 if st.button("🧧 สนับสนุนค่าน้ำชาผู้พัฒนา", use_container_width=True): show_donate()
