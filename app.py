@@ -39,6 +39,10 @@ if "study_plan" not in st.session_state:
     st.session_state.study_plan = {f"Y{y}T{t}": {s: "-" for s in ["1A","1B","2A","2B","3A","3B","4A","4B"]} 
                                   for y in range(1, 5) for t in ["1", "2", "S"]}
 
+# สร้างตัวแปรสำหรับคุม Version ของ Widget เพื่อใช้ Reset
+if "slot_versions" not in st.session_state:
+    st.session_state.slot_versions = {f"Y{y}T{t}_{s}": 0 for y in range(1, 5) for t in ["1", "2", "S"] for s in ["1A","1B","2A","2B","3A","3B","4A","4B"]}
+
 # --- 3. CSS (ล็อกสีตัวหนังสือดำชัดเจน 100%) ---
 st.markdown("""
     <style>
@@ -48,15 +52,26 @@ st.markdown("""
     .overall-table th { background-color: #1e3a8a; color: #fff !important; }
     .sub-tag { background: #e0f2fe; padding: 2px 4px; border-radius: 4px; display: block; margin-bottom: 2px; border-left: 3px solid #0369a1; font-size: 11px; color: #000 !important; }
     .summary-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; padding: 10px 0; }
-    .result-box { width: 90px; padding: 5px; border: 2px solid #000; border-radius: 5px; text-align: center; background-color: #fff !important; color: #000 !important; }
-    .result-box span { color: #000 !important; }
+    .result-box { width: 95px; padding: 5px; border: 2px solid #000; border-radius: 5px; text-align: center; background-color: #fff !important; color: #000 !important; }
     .result-box b { color: #d32f2f !important; font-size: 18px; }
     .slot-label { font-weight: bold; color: #1e3a8a; font-size: 14px; }
     .credit-tag-black { color: #000 !important; font-weight: bold; display: block; margin-top: 5px; }
+    /* บังคับสีฟอนต์ทุกส่วน */
+    p, span, label { color: #000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. Function: Pop-up Donate ---
+# --- 4. Functions ---
+def handle_clear_slot(tk, sn):
+    st.session_state.study_plan[tk][sn] = "-"
+    st.session_state.slot_versions[f"{tk}_{sn}"] += 1
+
+def handle_clear_all():
+    for tk in st.session_state.study_plan:
+        for sn in st.session_state.study_plan[tk]:
+            st.session_state.study_plan[tk][sn] = "-"
+            st.session_state.slot_versions[f"{tk}_{sn}"] += 1
+
 @st.dialog("🧧 สนับสนุนค่าน้ำชาผู้พัฒนา")
 def show_donate():
     st.write("ขอบคุณที่สนับสนุนครับ! กด X เพื่อปิด")
@@ -66,24 +81,15 @@ def show_donate():
             break
     else: st.error("ไม่พบรูป QR Code")
 
-# --- 5. Helper Functions สำหรับการลบ ---
-def handle_clear(tk, sn):
-    st.session_state.study_plan[tk][sn] = "-"
-
-def handle_clear_all():
-    for tk in st.session_state.study_plan:
-        for sn in st.session_state.study_plan[tk]:
-            st.session_state.study_plan[tk][sn] = "-"
-
 st.title("⚖️ ระบบคำนวณ GPA & วางแผนเรียน")
-
 tab1, tab2 = st.tabs(["📊 คำนวณเกรดสะสม (GPA)", "📅 วางแผนลงทะเบียน 4 ปี"])
 
 # --- TAB 1: GPA ---
 with tab1:
-    st.info("ทำเครื่องหมายวิชาที่ผ่านแล้ว")
+    st.info("ติ๊กวิชาที่ผ่านแล้ว")
     selected_gpa = []
-    for label, cp in {"RAM": "RAM", "LAW": "LAW", "เลือก": "ELECTIVE"}.items():
+    cats = {"📂 หมวด RAM": "RAM", "📂 หมวด LAW": "LAW", "📂 หมวดเลือก": "ELECTIVE"}
+    for label, cp in cats.items():
         with st.expander(label, expanded=(cp == "LAW")):
             cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == cp}
             cols = st.columns(4)
@@ -97,7 +103,7 @@ with tab1:
         tc = sum(d['credit'] for d in selected_gpa); tp = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
         st.success(f"### GPA: {tp/tc:.2f} | รวม {tc} นก.")
         h = '<div class="summary-grid">'
-        for d in selected_gpa: h += f'<div class="result-box"><span style="color:#000">{d["name"]}</span><br><b>{d["grade"]}</b></div>'
+        for d in selected_gpa: h += f'<div class="result-box"><span>{d["name"]}</span><br><b>{d["grade"]}</b></div>'
         st.markdown(h + '</div>', unsafe_allow_html=True)
 
 # --- TAB 2: วางแผน (8 Slot) ---
@@ -119,17 +125,21 @@ with tab2:
             day, period = sn[0], sn[1]
             valid = ["-"] + [f"{c} | {all_courses_db[c][3]}" for c in all_courses_db if all_courses_db[c][1] == day and all_courses_db[c][2] == period and c not in used]
             
-            # ดึงค่าปัจจุบันจาก state มาเป็น Index ของ Selectbox
-            curr_val = st.session_state.study_plan[curr_tk][sn]
-            default_idx = valid.index(curr_val) if curr_val in valid else 0
+            # --- จุดสำคัญ: ใช้ Version คุม Key ของ Selectbox ---
+            v_key = f"{curr_tk}_{sn}"
+            current_version = st.session_state.slot_versions[v_key]
             
-            # วาง Selectbox โดยใช้ on_change เพื่ออัปเดต state ทันที
-            choice = st.selectbox(f"S_{sn}", options=valid, index=default_idx, key=f"sel_{curr_tk}_{sn}", label_visibility="collapsed")
+            choice = st.selectbox(
+                f"S_{sn}", 
+                options=valid, 
+                key=f"widget_{v_key}_v{current_version}", 
+                label_visibility="collapsed"
+            )
+            # อัปเดตข้อมูลลงแผน
             st.session_state.study_plan[curr_tk][sn] = choice
             
             if choice != "-":
-                # ปุ่มลบ: เรียกใช้ callback handle_clear
-                st.button(f"🗑️ ลบ {sn}", key=f"btn_del_{curr_tk}_{sn}", on_click=handle_clear, args=(curr_tk, sn))
+                st.button(f"🗑️ ลบ {sn}", key=f"btn_del_{v_key}", on_click=handle_clear_slot, args=(curr_tk, sn))
 
     # --- ตารางสรุปภาพรวม 4 ปี ---
     st.divider()
@@ -148,4 +158,4 @@ with tab2:
     st.button("♻️ ล้างแผนทั้งหมดทุกปี", on_click=handle_clear_all)
 
 st.markdown("---")
-if st.button("🧧 สนับสนุนค่าน้ำชาผู้พัฒนา (Pop-up)", use_container_width=True): show_donate()
+if st.button("🧧 สนับสนุนค่าน้ำชาผู้พัฒนา", use_container_width=True): show_donate()
