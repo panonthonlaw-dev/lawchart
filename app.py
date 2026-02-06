@@ -2,7 +2,7 @@ import streamlit as st
 from fpdf import FPDF
 import os
 
-# --- 1. ข้อมูลวิชา 140 หน่วยกิตเป๊ะ ---
+# --- 1. ข้อมูลวิชา 140 หน่วยกิต ---
 all_courses = {
     "หมวดวิชา RAM (30 นก.)": {
         "RAM1103": 3, "RAM1111": 3, "RAM1112": 3, "RAM1132": 3, 
@@ -29,54 +29,60 @@ all_courses = {
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-# --- 2. ตั้งค่าหน้าเว็บและ CSS ---
 st.set_page_config(page_title="GPA Law Compact", layout="wide")
 
+# --- 2. ฟังก์ชันล้างค่า (Reset) ---
+def reset_all():
+    for key in st.session_state.keys():
+        if key.startswith("chk_") or key.startswith("g_"):
+            # ตั้งค่า checkbox กลับเป็น False และเกรดกลับเป็น A
+            if key.startswith("chk_"):
+                st.session_state[key] = False
+            else:
+                st.session_state[key] = "A"
+
+# --- 3. CSS (ซ่อนลูกศรและบีบระยะ) ---
 st.markdown("""
     <style>
-    /* ซ่อนลูกศร Dropdown และปุ่มกากบาท */
     [data-baseweb="select"] [data-testid="stHeaderActionElements"], 
-    svg[class^="StyledIcon"], .stSelectbox svg {
-        display: none !important;
-    }
-    /* ปรับแต่งช่อง Selectbox ให้เล็กจิ๋วและตัวอักษรอยู่ตรงกลาง */
-    div[data-baseweb="select"] {
-        min-height: 28px !important; height: 28px !important;
-        background-color: #f0f2f6 !important;
-    }
-    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p {
-        text-align: center !important; font-weight: bold !important; font-size: 14px !important;
-    }
-    /* บีบระยะห่าง */
+    svg[class^="StyledIcon"], .stSelectbox svg { display: none !important; }
+    div[data-baseweb="select"] { min-height: 28px !important; height: 28px !important; background-color: #f0f2f6 !important; }
+    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { text-align: center !important; font-weight: bold !important; font-size: 14px !important; }
     .stMainBlockContainer { padding-top: 1rem !important; }
     div[data-testid="column"] { padding: 0px 4px !important; }
     .stCheckbox { margin-bottom: -15px !important; }
-    
-    /* สไตล์กล่องสรุป 6 คอลัมน์ด้านล่าง */
-    .result-box {
-        padding: 4px; border: 1px solid #ddd; border-radius: 4px;
-        text-align: center; background-color: white; margin-bottom: 5px; font-size: 11px;
-    }
+    .result-box { padding: 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center; background-color: white; margin-bottom: 5px; font-size: 11px; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ เครื่องมือคำนวณเกรดนิติศาสตร์")
+# ส่วนหัวเรื่องพร้อมปุ่มล้างค่า
+head_col1, head_col2 = st.columns([5, 1])
+head_col1.title("⚖️ คำนวณเกรดนิติศาสตร์")
+if head_col2.button("♻️ ล้างค่าทั้งหมด", on_click=reset_all, use_container_width=True):
+    st.rerun()
 
 selected_data = []
 
-# --- 3. ส่วนการเลือกวิชา (แสดงผล 4 คอลัมน์) ---
+# --- 4. ส่วนเลือกวิชา ---
 for cat, courses in all_courses.items():
     with st.expander(f"📂 {cat}", expanded=True):
         cols = st.columns(4)
         for i, (name, credit) in enumerate(courses.items()):
             with cols[i % 4]:
                 inner = st.columns([1.3, 1])
-                if inner[0].checkbox(name, key=f"chk_{name}"):
-                    # ช่องเกรดจะโผล่มาเมื่อติ๊กถูก ชิดกับชื่อวิชา และไม่มีลูกศร
-                    g = inner[1].selectbox("", list(grade_map.keys()), key=f"g_{name}", label_visibility="collapsed")
+                # ใช้ session_state ควบคุมค่าเริ่มต้นเพื่อให้ปุ่มล้างค่าทำงานได้
+                chk_key = f"chk_{name}"
+                if chk_key not in st.session_state: st.session_state[chk_key] = False
+                
+                is_checked = inner[0].checkbox(name, key=chk_key)
+                
+                if is_checked:
+                    grd_key = f"g_{name}"
+                    if grd_key not in st.session_state: st.session_state[grd_key] = "A"
+                    g = inner[1].selectbox("", list(grade_map.keys()), key=grd_key, label_visibility="collapsed")
                     selected_data.append({"name": name, "credit": credit, "grade": g})
 
-# --- 4. ส่วนสรุปผลและสร้าง PDF ---
+# --- 5. สรุปผลและ PDF ---
 if selected_data:
     st.divider()
     total_creds = sum(d['credit'] for d in selected_data)
@@ -86,51 +92,26 @@ if selected_data:
     col_res, col_pdf = st.columns([4, 1])
     col_res.success(f"### GPA: {gpa:.2f} | ทั้งหมด {total_creds} หน่วยกิต")
     
-    # แสดงสรุปวิชาแบบ 6 คอลัมน์
     res_cols = st.columns(6)
     for idx, item in enumerate(selected_data):
         with res_cols[idx % 6]:
             st.markdown(f'<div class="result-box">{item["name"]}<br><b>{item["grade"]}</b></div>', unsafe_allow_html=True)
 
-    # ฟังก์ชันสร้าง PDF (แก้ไข Error unsupported_error)
     if col_pdf.button("🖨️ พิมพ์ PDF", use_container_width=True):
         if os.path.exists("THSarabunNew.ttf"):
-            try:
-                pdf = FPDF()
-                pdf.add_page()
-                pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
-                pdf.set_font("THSarabun", "", 20)
-                pdf.cell(0, 10, "รายงานผลการเรียนเฉลี่ย", ln=True, align='C')
-                
-                pdf.set_font("THSarabun", "", 12)
-                pdf.ln(5)
-                # หัวตาราง
-                pdf.cell(80, 8, "วิชา", 1); pdf.cell(50, 8, "หน่วยกิต", 1); pdf.cell(50, 8, "เกรด", 1, ln=True)
-                
-                for d in selected_data:
-                    pdf.cell(80, 8, f" {d['name']}", 1)
-                    pdf.cell(50, 8, f" {d['credit']} นก.", 1)
-                    pdf.cell(50, 8, f" {d['grade']}", 1, ln=True)
-                
-                pdf.ln(5)
-                pdf.set_font("THSarabun", "", 16)
-                pdf.cell(0, 10, f"เกรดเฉลี่ยสะสม (GPA): {gpa:.2f} | รวมหน่วยกิต: {total_creds}", ln=True)
-                
-                # แปลงเป็น Bytes ให้ Streamlit รองรับ
-                pdf_bytes = pdf.output()
-                if isinstance(pdf_bytes, str): # ป้องกันกรณี fpdf คืนค่าเป็น string
-                    pdf_bytes = pdf_bytes.encode('latin-1')
-                
-                st.download_button(
-                    label="💾 คลิกเพื่อดาวน์โหลด PDF",
-                    data=pdf_bytes,
-                    file_name="GPA_Report.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-            except Exception as e:
-                st.error(f"เกิดข้อผิดพลาด: {e}")
-        else:
-            st.error("ไม่พบไฟล์ฟอนต์ THSarabunNew.ttf กรุณาตรวจสอบใน Repo")
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
+            pdf.set_font("THSarabun", "", 20)
+            pdf.cell(0, 10, "รายงานผลการเรียน", ln=True, align='C')
+            pdf.set_font("THSarabun", "", 12)
+            pdf.ln(5)
+            pdf.cell(80, 8, "วิชา", 1); pdf.cell(50, 8, "หน่วยกิต", 1); pdf.cell(50, 8, "เกรด", 1, ln=True)
+            for d in selected_data:
+                pdf.cell(80, 8, f" {d['name']}", 1)
+                pdf.cell(50, 8, f" {d['credit']} นก.", 1)
+                pdf.cell(50, 8, f" {d['grade']}", 1, ln=True)
+            pdf_bytes = pdf.output()
+            st.download_button(label="💾 ดาวน์โหลด PDF", data=pdf_bytes, file_name="GPA_Report.pdf", mime="application/pdf")
 else:
-    st.info("👈 เริ่มต้นโดยการติ๊กเลือกวิชาที่คุณสอบผ่านแล้วจากเมนูด้านบน")
+    st.info("👈 ติ๊กเลือกวิชาด้านบนเพื่อเริ่มคำนวณ")
