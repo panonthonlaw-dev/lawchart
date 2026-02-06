@@ -3,7 +3,7 @@ from fpdf import FPDF
 import os
 from io import BytesIO
 
-# --- 1. ข้อมูลวิชา 140 หน่วยกิต ---
+# --- ข้อมูลวิชา 140 หน่วยกิต ---
 all_courses = {
     "หมวดวิชา RAM": {"RAM1103": 3, "RAM1111": 3, "RAM1112": 3, "RAM1132": 3, "RAM1141": 3, "RAM1204": 3, "RAM1213": 3, "RAM1301": 3, "RAM1302": 3, "RAM1312": 3},
     "หมวดวิชา LAW": {
@@ -16,7 +16,7 @@ grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D":
 
 st.set_page_config(page_title="GPA Law Pro", layout="wide")
 
-# --- 2. ฟังก์ชัน Popup โดเนท ---
+# --- ฟังก์ชัน Popup โดเนท ---
 @st.dialog("สนับสนุนผู้พัฒนา 🙏")
 def donate_dialog():
     st.write("ใช้ฟรี! หากอยากโดเนทเพื่อให้กำลังใจ สามารถสแกนได้ที่นี่ครับ")
@@ -31,18 +31,40 @@ def reset_all():
         if key.startswith("chk_") or key.startswith("g_"):
             st.session_state[key] = False if key.startswith("chk_") else "A"
 
-# --- 3. CSS ---
+# --- CSS แก้ไขการแสดงผลบนมือถือ ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stMainBlockContainer { padding-top: 2rem !important; }
-    [data-testid="stExpander"] [data-testid="column"] { flex: 1 1 45% !important; min-width: 150px !important; }
+    
+    /* บังคับให้ส่วนเลือกวิชาแสดง 2 คอลัมน์เสมอ */
+    [data-testid="stExpander"] [data-testid="column"] {
+        flex: 1 1 45% !important;
+        min-width: 140px !important;
+    }
+    
+    /* ซ่อนลูกศร Dropdown */
     [data-baseweb="select"] [data-testid="stHeaderActionElements"], svg[class^="StyledIcon"], .stSelectbox svg { display: none !important; }
     div[data-baseweb="select"] { min-height: 28px !important; height: 28px !important; background-color: #f0f2f6 !important; }
     div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { text-align: center !important; font-weight: bold !important; font-size: 14px !important; }
-    .stCheckbox { margin-bottom: -10px !important; }
-    .result-box { padding: 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center; background-color: white; margin-bottom: 5px; font-size: 11px; }
+    
+    /* กล่องสรุปวิชาแบบปรับตามขนาดหน้าจอ (Responsive Grid) */
+    .summary-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 5px;
+        margin-top: 10px;
+    }
+    .result-box {
+        padding: 5px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        text-align: center;
+        background-color: #ffffff;
+        font-size: 11px;
+        line-height: 1.2;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -54,7 +76,7 @@ if head_col2.button("♻️ ล้างค่า", on_click=reset_all, use_cont
 
 selected_by_cat = {cat: [] for cat in all_courses.keys()}
 
-# --- 4. ส่วนเลือกวิชา ---
+# --- ส่วนเลือกวิชา ---
 for cat, courses in all_courses.items():
     with st.expander(f"📂 {cat}", expanded=True):
         cols = st.columns(4)
@@ -70,7 +92,7 @@ for cat, courses in all_courses.items():
                     g = c_row[1].selectbox("", list(grade_map.keys()), key=grd_key, label_visibility="collapsed")
                     selected_by_cat[cat].append({"name": name, "credit": credit, "grade": g})
 
-# --- 5. สรุปผลและสร้าง PDF (Logic ใหม่) ---
+# --- ส่วนสรุปผล ---
 all_selected = [item for sublist in selected_by_cat.values() for item in sublist]
 if all_selected:
     st.divider()
@@ -80,11 +102,14 @@ if all_selected:
 
     st.success(f"### GPA: {gpa:.2f} | รวม {total_creds} หน่วยกิต")
     
-    res_cols = st.columns(6)
-    for idx, item in enumerate(all_selected):
-        with res_cols[idx % 6]:
-            st.markdown(f'<div class="result-box">{item["name"]}<br><b>{item["grade"]}</b></div>', unsafe_allow_html=True)
+    # แสดงรายชื่อวิชาที่เลือกแบบใช้ HTML Grid เพื่อให้รองรับมือถือ
+    summary_html = '<div class="summary-container">'
+    for item in all_selected:
+        summary_html += f'<div class="result-box">{item["name"]}<br><b>{item["grade"]}</b></div>'
+    summary_html += '</div>'
+    st.markdown(summary_html, unsafe_allow_html=True)
 
+    st.write("") # เว้นระยะ
     if st.button("🖨️ พิมพ์ PDF", use_container_width=True):
         if os.path.exists("THSarabunNew.ttf"):
             pdf = FPDF()
@@ -96,46 +121,32 @@ if all_selected:
 
             for cat, items in selected_by_cat.items():
                 if items:
-                    # หัวข้อกลุ่มวิชา
-                    pdf.set_font("THSarabun", "", 16)
-                    pdf.set_fill_color(240, 240, 240)
-                    pdf.cell(0, 10, f" {cat}", ln=True, fill=True)
-                    pdf.ln(2)
-                    
+                    pdf.set_font("THSarabun", "", 16); pdf.set_fill_color(240, 240, 240)
+                    pdf.cell(0, 10, f" {cat}", ln=True, fill=True); pdf.ln(2)
                     pdf.set_font("THSarabun", "", 12)
-                    # แบ่ง 2 คอลัมน์ด้วยการคำนวณจำนวนแถว
-                    col1_items = items[::2]
-                    col2_items = items[1::2]
-                    
-                    # วนลูปตามจำนวนแถวที่มากที่สุด
+                    col1_items = items[::2]; col2_items = items[1::2]
                     num_rows = max(len(col1_items), len(col2_items))
                     for r in range(num_rows):
                         curr_y = pdf.get_y()
-                        # เขียนฝั่งซ้าย
                         if r < len(col1_items):
                             pdf.set_xy(10, curr_y)
                             pdf.cell(65, 8, f" {col1_items[r]['name']}", 1)
                             pdf.cell(25, 8, f"{col1_items[r]['grade']}", 1, align='C')
-                        
-                        # เขียนฝั่งขวา
                         if r < len(col2_items):
                             pdf.set_xy(105, curr_y)
                             pdf.cell(65, 8, f" {col2_items[r]['name']}", 1)
                             pdf.cell(25, 8, f"{col2_items[r]['grade']}", 1, align='C')
-                        
-                        pdf.ln(8) # จบบรรทัด
-                    pdf.ln(5) # เว้นระยะก่อนกลุ่มใหม่
+                        pdf.ln(8)
+                    pdf.ln(5)
 
-            pdf.ln(5)
-            pdf.set_font("THSarabun", "", 18)
+            pdf.ln(5); pdf.set_font("THSarabun", "", 18)
             pdf.cell(0, 10, f"จำนวนหน่วยกิตสะสมรวม: {total_creds} หน่วยกิต", ln=True)
             pdf.cell(0, 10, f"เกรดเฉลี่ยสะสม (GPA): {gpa:.2f}", ln=True)
-            
             st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=bytes(pdf.output()), file_name="GPA_Law_Report.pdf", mime="application/pdf", use_container_width=True)
         else:
             st.error("ไม่พบฟอนต์")
 
-# --- 6. Footer ---
+# --- Footer ---
 st.markdown("---")
 if st.button("🧧 สนับสนุนค่าน้ำชา / โดเนท", use_container_width=True):
     donate_dialog()
