@@ -31,31 +31,48 @@ grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D":
 
 st.set_page_config(page_title="GPA Law Compact", layout="wide")
 
-# --- 2. ฟังก์ชันล้างค่า (Reset) ---
+# --- 2. ฟังก์ชันล้างค่า ---
 def reset_all():
     for key in st.session_state.keys():
         if key.startswith("chk_") or key.startswith("g_"):
-            # ตั้งค่า checkbox กลับเป็น False และเกรดกลับเป็น A
             if key.startswith("chk_"):
                 st.session_state[key] = False
             else:
                 st.session_state[key] = "A"
 
-# --- 3. CSS (ซ่อนลูกศรและบีบระยะ) ---
+# --- 3. CSS (ซ่อน Top Bar + ปรับระยะขอบบน + ซ่อนลูกศร) ---
 st.markdown("""
     <style>
+    /* ซ่อน Streamlit Top Bar และ Footer */
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    
+    /* เพิ่มระยะห่างด้านบนหัวข้อ (Top Margin) */
+    .stMainBlockContainer { 
+        padding-top: 4rem !important; 
+    }
+    
+    /* ซ่อนลูกศร Dropdown */
     [data-baseweb="select"] [data-testid="stHeaderActionElements"], 
     svg[class^="StyledIcon"], .stSelectbox svg { display: none !important; }
-    div[data-baseweb="select"] { min-height: 28px !important; height: 28px !important; background-color: #f0f2f6 !important; }
-    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { text-align: center !important; font-weight: bold !important; font-size: 14px !important; }
-    .stMainBlockContainer { padding-top: 1rem !important; }
+    
+    /* ปรับแต่ง Dropdown */
+    div[data-baseweb="select"] { 
+        min-height: 28px !important; height: 28px !important; background-color: #f0f2f6 !important; 
+    }
+    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { 
+        text-align: center !important; font-weight: bold !important; font-size: 14px !important; 
+    }
+    
+    /* บีบระยะห่างวิชา */
     div[data-testid="column"] { padding: 0px 4px !important; }
     .stCheckbox { margin-bottom: -15px !important; }
     .result-box { padding: 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center; background-color: white; margin-bottom: 5px; font-size: 11px; }
     </style>
     """, unsafe_allow_html=True)
 
-# ส่วนหัวเรื่องพร้อมปุ่มล้างค่า
+# ส่วนหัวเรื่อง
 head_col1, head_col2 = st.columns([5, 1])
 head_col1.title("⚖️ คำนวณเกรดนิติศาสตร์")
 if head_col2.button("♻️ ล้างค่าทั้งหมด", on_click=reset_all, use_container_width=True):
@@ -70,7 +87,6 @@ for cat, courses in all_courses.items():
         for i, (name, credit) in enumerate(courses.items()):
             with cols[i % 4]:
                 inner = st.columns([1.3, 1])
-                # ใช้ session_state ควบคุมค่าเริ่มต้นเพื่อให้ปุ่มล้างค่าทำงานได้
                 chk_key = f"chk_{name}"
                 if chk_key not in st.session_state: st.session_state[chk_key] = False
                 
@@ -111,7 +127,8 @@ if selected_data:
                 pdf.cell(80, 8, f" {d['name']}", 1)
                 pdf.cell(50, 8, f" {d['credit']} นก.", 1)
                 pdf.cell(50, 8, f" {d['grade']}", 1, ln=True)
+            
             pdf_bytes = pdf.output()
-            st.download_button(label="💾 ดาวน์โหลด PDF", data=pdf_bytes, file_name="GPA_Report.pdf", mime="application/pdf")
+            st.download_button(label="💾 ดาวน์โหลด PDF", data=pdf_bytes, file_name="GPA_Report.pdf", mime="application/pdf", use_container_width=True)
 else:
     st.info("👈 ติ๊กเลือกวิชาด้านบนเพื่อเริ่มคำนวณ")
