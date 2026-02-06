@@ -2,11 +2,12 @@ import streamlit as st
 from fpdf import FPDF
 import os
 
-# --- ข้อมูลวิชาที่คุณให้มา ---
+# --- ข้อมูลวิชาทั้งหมด (อัปเดตตามที่คุณส่งมาล่าสุด) ---
 all_courses = {
     "หมวดวิชา RAM": {
-        "RAM1111": 3, "RAM1131": 3, "RAM1141": 3, "RAM1201": 3, 
-        "RAM1112": 3, "RAM1301": 3, "RAM1302": 3, "RAM1311": 3
+        "RAM1103": 3, "RAM1111": 3, "RAM1112": 3, "RAM1132": 3, 
+        "RAM1141": 3, "RAM1204": 3, "RAM1213": 3, "RAM1301": 3, 
+        "RAM1302": 3, "RAM1312": 3
     },
     "หมวดวิชา LAW": {
         "LAW1101": 2, "LAW1102": 2, "LAW1103": 3, "LAW1106": 3,
@@ -28,15 +29,16 @@ all_courses = {
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="GPA Calculator", layout="centered")
-st.title("⚖️ เครื่องมือคำนวณเกรดนิติศาสตร์")
+st.set_page_config(page_title="GPA Law Calculator", layout="centered")
+st.title("⚖️ ระบบคำนวณเกรดนิติศาสตร์")
+st.write("ติ๊กเลือกวิชาที่สอบผ่านแล้วเพื่อคำนวณเกรด")
 
 if "selected" not in st.session_state:
     st.session_state.selected = {}
 
-# ส่วนเลือกวิชา
+# --- แสดงรายการวิชาให้เลือก ---
 for cat, courses in all_courses.items():
-    with st.expander(cat):
+    with st.expander(f"📂 {cat}"):
         cols = st.columns(3)
         for i, (name, credit) in enumerate(courses.items()):
             with cols[i % 3]:
@@ -45,46 +47,62 @@ for cat, courses in all_courses.items():
                 else:
                     st.session_state.selected.pop(name, None)
 
-# ส่วนกรอกเกรดและคำนวณ
+# --- ส่วนคำนวณผล ---
 if st.session_state.selected:
-    st.header("📝 กรอกเกรดวิชาที่เลือก")
+    st.divider()
+    st.subheader("📝 ระบุเกรด")
+    
     total_creds = 0
     total_score = 0
-    pdf_data = []
+    pdf_list = []
 
-    for name, credit in st.session_state.selected.items():
+    # เรียงลำดับวิชาตามชื่อเพื่อให้ดูง่าย
+    sorted_selected = dict(sorted(st.session_state.selected.items()))
+
+    for name, credit in sorted_selected.items():
         c1, c2 = st.columns([3, 1])
         c1.write(f"**{name}** ({credit} หน่วยกิต)")
-        g_letter = c2.selectbox("เกรด", list(grade_map.keys()), key=f"grd_{name}")
+        g_letter = c2.selectbox("เลือกเกรด", list(grade_map.keys()), key=f"grd_{name}")
         
         total_creds += credit
         total_score += grade_map[g_letter] * credit
-        pdf_data.append([name, str(credit), g_letter])
+        pdf_list.append([name, str(credit), g_letter])
 
-    gpa = total_score / total_creds if total_creds > 0 else 0
-    st.success(f"### GPA ของคุณคือ: {gpa:.2f}")
+    if total_creds > 0:
+        gpa = total_score / total_creds
+        st.success(f"### GPA ของคุณคือ: {gpa:.2f}")
+        st.info(f"จำนวนหน่วยกิตที่คำนวณ: {total_creds} หน่วยกิต")
 
-    # ปุ่มพิมพ์ PDF
-    if st.button("🖨️ พิมพ์เป็น PDF"):
-        font_path = "THSarabunNew.ttf"
-        if os.path.exists(font_path):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.add_font("THSarabun", "", font_path)
-            pdf.set_font("THSarabun", "", 24)
-            pdf.cell(0, 15, "รายงานผลการเรียน", ln=True, align='C')
-            
-            pdf.set_font("THSarabun", "", 16)
-            for row in pdf_data:
-                pdf.cell(100, 10, f"วิชา: {row[0]}")
-                pdf.cell(40, 10, f"หน่วยกิต: {row[1]}")
-                pdf.cell(40, 10, f"เกรด: {row[2]}", ln=True)
-            
-            pdf.ln(10)
-            pdf.set_font("THSarabun", "", 20)
-            pdf.cell(0, 10, f"เกรดเฉลี่ยสะสม: {gpa:.2f}", ln=True)
-            
-            pdf_bytes = pdf.output()
-            st.download_button("📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name="GPA.pdf", mime="application/pdf")
-        else:
-            st.error("ไม่พบไฟล์ THSarabunNew.ttf ใน Repo กรุณาอัปโหลดไฟล์ฟอนต์ก่อนครับ")
+        # --- ส่วน Export PDF ---
+        if st.button("🖨️ พิมพ์ใบสรุปผล (PDF)"):
+            font_path = "THSarabunNew.ttf"
+            if os.path.exists(font_path):
+                pdf = FPDF()
+                pdf.add_page()
+                pdf.add_font("THSarabun", "", font_path)
+                pdf.set_font("THSarabun", "", 24)
+                pdf.cell(0, 15, "สรุปผลการเรียนวิชากฎหมาย", ln=True, align='C')
+                
+                pdf.set_font("THSarabun", "", 16)
+                pdf.ln(5)
+                # หัวตาราง PDF
+                pdf.cell(80, 10, "รหัสวิชา", border=1, align='C')
+                pdf.cell(50, 10, "หน่วยกิต", border=1, align='C')
+                pdf.cell(50, 10, "เกรด", border=1, align='C', ln=True)
+
+                for item in pdf_list:
+                    pdf.cell(80, 10, f" {item[0]}", border=1)
+                    pdf.cell(50, 10, f"{item[1]}", border=1, align='C')
+                    pdf.cell(50, 10, f"{item[2]}", border=1, align='C', ln=True)
+                
+                pdf.ln(10)
+                pdf.set_font("THSarabun", "", 20)
+                pdf.cell(0, 10, f"หน่วยกิตสะสมรวม: {total_creds}", ln=True)
+                pdf.cell(0, 10, f"เกรดเฉลี่ย (GPA): {gpa:.2f}", ln=True)
+                
+                pdf_bytes = pdf.output()
+                st.download_button("📥 ดาวน์โหลดไฟล์ PDF", data=pdf_bytes, file_name="GPA_Report.pdf", mime="application/pdf")
+            else:
+                st.error("กรุณาอัปโหลดไฟล์ THSarabunNew.ttf ไว้ใน Repo เพื่อพิมพ์ภาษาไทย")
+else:
+    st.info("เริ่มต้นโดยการเลือกวิชาจากเมนูด้านบน")
