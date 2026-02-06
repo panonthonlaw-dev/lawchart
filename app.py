@@ -5,7 +5,7 @@ import os
 all_courses_db = {
     "RAM1101": [3, "4", "A", "ภาษาไทย", "RAM"], "RAM1111": [3, "4", "B", "อังกฤษ 1", "RAM"],
     "RAM1112": [3, "3", "B", "อังกฤษ 2", "RAM"], "RAM1132": [3, "3", "A", "การใช้ห้องสมุด", "RAM"],
-    "RAM1141": [3, "2", "A", "สุขภาพและบุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
+    "RAM1141": [3, "2", "A", "บุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
     "RAM1213": [3, "3", "A", "วิชา RAM", "RAM"], "RAM1301": [3, "4", "B", "คุณธรรม", "RAM"],
     "RAM1303": [3, "2", "B", "วิทยาศาสตร์", "RAM"], "RAM1312": [3, "4", "B", "วิชา RAM", "RAM"],
     "LAW1101": [2, "2", "A", "กฎหมายมหาชน", "LAW"], "LAW1102": [2, "4", "A", "กฎหมายเอกชน", "LAW"],
@@ -30,10 +30,11 @@ all_courses_db = {
     "LAW4134": [2, "1", "B", "ทะเล", "ELECTIVE"], "LAW4156": [2, "2", "A", "อิ้งกฎหมาย", "ELECTIVE"]
 }
 
-st.set_page_config(page_title="Law Planner Pro", layout="wide")
+grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-# --- 2. Initialize Session State ---
-# ใช้สำหรับเก็บ "รุ่น" ของ Widget (เพื่อใช้ Reset)
+st.set_page_config(page_title="Law GPA & Planner Pro", layout="wide")
+
+# --- 2. Initialize Session State (สำหรับปุ่มลบ) ---
 if "reset_counters" not in st.session_state:
     st.session_state.reset_counters = {s: 0 for s in ["1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]}
 
@@ -42,31 +43,49 @@ st.markdown("""
     <style>
     header {visibility: hidden;}
     .slot-label { font-weight: bold; color: #1e3a8a; font-size: 15px; margin-bottom: 5px; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 30px; padding: 0px; font-size: 12px; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 30px; font-size: 12px; padding: 0; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ Law GPA & Slot Planner")
+st.title("⚖️ Law GPA & Planning System")
 
-tab1, tab2 = st.tabs(["📊 คำนวณเกรด", "📅 วางแผนลงทะเบียน (1A-4B)"])
+tab1, tab2 = st.tabs(["📊 คำนวณเกรดสะสม", "📅 วางแผน (แยกตามคาบสอบ)"])
 
-# --- TAB 1: GPA ---
+# --- TAB 1: คำนวณเกรด (GPA) ---
 with tab1:
-    st.info("ส่วนคำนวณเกรดสะสม")
-    # (ใส่ Logic GPA เดิมที่นี่)
+    st.info("ติ๊กวิชาที่สอบผ่านแล้วเพื่อคำนวณ GPA")
+    selected_gpa = []
+    cats = {"📂 หมวด RAM": "RAM", "📂 หมวด LAW": "LAW", "📂 หมวดวิชาเลือก": "ELECTIVE"}
+    
+    for label, cp in cats.items():
+        with st.expander(label, expanded=(cp == "LAW")):
+            cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == cp}
+            gpa_cols = st.columns(4)
+            for idx, (code, info) in enumerate(cat_courses.items()):
+                with gpa_cols[idx % 4]:
+                    r = st.columns([1.2, 1])
+                    if r[0].checkbox(code, key=f"gpa_chk_{code}"):
+                        g = r[1].selectbox("G", list(grade_map.keys()), key=f"gpa_sel_{code}", label_visibility="collapsed")
+                        selected_gpa.append({"credit": info[0], "grade": g})
+    
+    if selected_gpa:
+        st.divider()
+        total_creds = sum(d['credit'] for d in selected_gpa)
+        total_pts = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
+        gpa_score = total_pts / total_creds if total_creds > 0 else 0
+        st.success(f"### GPA สะสม: {gpa_score:.2f} | รวม {total_creds} หน่วยกิต")
 
-# --- TAB 2: Slot Planning (Fixed Delete) ---
+# --- TAB 2: วางแผนลงทะเบียน (ล็อกคาบสอบ) ---
 with tab2:
-    c1, c2, c3 = st.columns([1,1,1])
-    y = c1.selectbox("ปีการศึกษา", [1,2,3,4])
-    t = c2.selectbox("เทอม", ["1", "2", "S"])
-    grad = c3.toggle("🎓 ขอจบ (ลงซ้ำซ้อนได้)")
+    col1, col2, col3 = st.columns(3)
+    y = col1.selectbox("ปีการศึกษา", [1, 2, 3, 4])
+    t = col2.selectbox("เทอม", ["1", "2", "S"])
+    grad = col3.toggle("🎓 ขอจบ (ลงซ้ำซ้อนได้)")
 
     st.divider()
-    
     slots = ["1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
     total_c = 0
-    selected_list = []
+    selected_plan = []
 
     rows = st.columns(4)
     for i, slot_name in enumerate(slots):
@@ -75,29 +94,23 @@ with tab2:
             
             # กรองวิชาตามคาบสอบ
             day, period = slot_name[0], slot_name[1]
-            valid_courses = ["-"] + [
+            valid_list = ["-"] + [
                 f"{code} | {info[3]}" for code, info in all_courses_db.items() 
                 if info[1] == day and info[2] == period
             ]
             
-            # ใช้ Key แบบ Dynamic ที่เปลี่ยนค่าได้เมื่อกดลบ
-            # key = f"Y{y}T{t}_{slot_name}_rev{st.session_state.reset_counters[slot_name]}"
-            current_key = f"select_{y}_{t}_{slot_name}_{st.session_state.reset_counters[slot_name]}"
+            # ใช้ Dynamic Key เพื่อให้ปุ่มลบทำงานได้จริง
+            current_key = f"plan_{y}_{t}_{slot_name}_v{st.session_state.reset_counters[slot_name]}"
             
-            choice = st.selectbox(
-                "วิชา",
-                options=valid_courses,
-                key=current_key,
-                label_visibility="collapsed"
-            )
+            choice = st.selectbox("วิชา", options=valid_list, key=current_key, label_visibility="collapsed")
 
             if choice != "-":
                 code = choice.split(" | ")[0]
                 total_c += all_courses_db[code][0]
-                selected_list.append(f"{code} ({all_courses_db[code][3]})")
+                selected_plan.append(f"{code} - {all_courses_db[code][3]}")
                 
-                # ปุ่มลบ: เมื่อกดจะบวกเลข Counter เพื่อเปลี่ยน Key ของ Selectbox ด้านบน
-                if st.button(f"ลบ {slot_name}", key=f"btn_del_{slot_name}"):
+                # ปุ่มลบรายสล็อต
+                if st.button(f"🗑️ ลบ {slot_name}", key=f"del_btn_{slot_name}"):
                     st.session_state.reset_counters[slot_name] += 1
                     st.rerun()
             else:
@@ -105,16 +118,21 @@ with tab2:
 
     st.divider()
     limit = 30 if grad else (9 if t == "S" else 22)
-    
     st.metric("หน่วยกิตรวมเทอมนี้", f"{total_c} / {limit}")
-    if total_c > limit:
-        st.error("⚠️ หน่วยกิตเกิน!")
     
-    if selected_list:
+    if total_c > limit:
+        st.error("⚠️ หน่วยกิตเกินกำหนด!")
+    
+    if selected_plan:
         st.write("**วิชาที่เลือก:**")
-        for s in selected_list: st.text(f"• {s}")
+        for item in selected_plan: st.text(f"• {item}")
 
     if st.button("♻️ ล้างแผนทั้งหมดของเทอมนี้"):
-        for s in slots:
-            st.session_state.reset_counters[s] += 1
+        for s in slots: st.session_state.reset_counters[s] += 1
         st.rerun()
+
+st.markdown("---")
+if st.button("🧧 โดเนทสนับสนุน"):
+    for ext in ["jpg", "jpeg", "png"]:
+        if os.path.exists(f"donate.{ext}"):
+            st.image(f"donate.{ext}", use_container_width=True)
