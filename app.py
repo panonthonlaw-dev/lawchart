@@ -31,82 +31,122 @@ all_courses_db = {
     "LAW4134": [2, "1", "B", "ทะเล", "ELECTIVE"], "LAW4156": [2, "2", "A", "อิ้งกฎหมาย", "ELECTIVE"]
 }
 
-st.set_page_config(page_title="Exam Slot Planner", layout="wide")
+grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
+
+st.set_page_config(page_title="Law Exam Slot Planner", layout="wide")
 
 # --- 2. CSS ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
     .slot-label {
-        background-color: #2c3e50;
+        background-color: #1e3a8a;
         color: white;
-        padding: 5px 10px;
+        padding: 5px;
         border-radius: 5px;
         font-weight: bold;
         text-align: center;
         margin-bottom: 5px;
+        font-size: 14px;
     }
     .stSelectbox label { display: none; }
+    .summary-box {
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: #f8fafc;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ Law Registration by Exam Slots")
+st.title("⚖️ Law GPA & Exam Planner")
 
-tab1, tab2 = st.tabs(["📊 คำนวณเกรด", "📅 วางแผน (แยกตามคาบสอบ)"])
+tab1, tab2 = st.tabs(["📊 คำนวณเกรด", "📅 วางแผน (ล็อกคาบสอบ)"])
 
+# --- TAB 1: GPA ---
 with tab1:
-    st.info("หน้าคำนวณเกรด (GPA) เหมือนเดิมครับ")
-    # ... (Logic คำนวณเกรดเดิม)
+    st.info("คำนวณผลการเรียนสะสม")
+    selected_gpa = []
+    for label, cp in {"RAM": "RAM", "LAW": "LAW", "Elective": "ELECTIVE"}.items():
+        with st.expander(f"📂 {label}", expanded=(cp=="LAW")):
+            cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == cp}
+            cols = st.columns(4)
+            for idx, (code, info) in enumerate(cat_courses.items()):
+                with cols[idx % 4]:
+                    r = st.columns([1.2, 1])
+                    if r[0].checkbox(code, key=f"gpa_c_{code}"):
+                        g = r[1].selectbox("G", list(grade_map.keys()), key=f"gpa_s_{code}", label_visibility="collapsed")
+                        selected_gpa.append({"credit": info[0], "grade": g})
+    if selected_gpa:
+        total_creds = sum(d['credit'] for d in selected_gpa)
+        total_pts = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
+        st.success(f"GPA: {total_pts/total_creds:.2f} | รวม {total_creds} นก.")
 
+# --- TAB 2: Slot Planning ---
 with tab2:
-    st.subheader("จัดตารางตามคาบสอบ (1A - 4B)")
+    st.subheader("จัดตารางเรียนแยกตามคาบสอบ (1A - 4B)")
     col_y, col_t, col_g = st.columns([1, 1, 1])
-    y_sel = col_y.selectbox("ปีการศึกษา", [1, 2, 3, 4])
-    t_sel = col_t.selectbox("เทอม", ["1", "2", "S"])
-    is_grad = col_g.toggle("🎓 ขอจบ (ลงซ้ำซ้อนได้)")
+    y_sel = col_y.selectbox("ปีการศึกษา", [1, 2, 3, 4], key="sel_y")
+    t_sel = col_t.selectbox("เทอม", ["1", "2", "S"], key="sel_t")
+    is_grad = col_g.toggle("🎓 ขอจบ (ลงซ้ำซ้อนได้)", key="is_grad")
 
     st.divider()
     
-    # ลิสต์คาบสอบทั้งหมด 8 คาบ
-    slots = ["1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
-    total_creds = 0
+    # กำหนด Key ของเทอมปัจจุบัน
     term_key = f"Y{y_sel}T{t_sel}"
+    slots = ["1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
+    total_credits = 0
+    final_subjects = []
 
-    # แสดงผลสล็อต
-    cols = st.columns(4) # แถวละ 4 สล็อต
+    # แสดงผลสล็อต 4 คอลัมน์
+    rows = st.columns(4)
     
     for i, slot_name in enumerate(slots):
-        with cols[i % 4]:
+        with rows[i % 4]:
             st.markdown(f"<div class='slot-label'>คาบสอบ {slot_name}</div>", unsafe_allow_html=True)
             
-            # กรองวิชาจาก Database ที่มีวันสอบตรงกับ Slot นี้เท่านั้น
-            day = slot_name[0] # "1", "2", "3", "4"
+            # กรองวิชาที่สอบตรงคาบนี้
+            day = slot_name[0]   # "1", "2"
             period = slot_name[1] # "A", "B"
             
-            available_in_slot = ["-"] + [
+            valid_courses = ["-"] + [
                 f"{code} | {info[3]}" for code, info in all_courses_db.items() 
                 if info[1] == day and info[2] == period
             ]
             
-            selected = st.selectbox(f"Select {slot_name}", available_options=available_in_slot, key=f"slot_{term_id}_{slot_name}")
+            # แก้ไข NameError โดยใช้ term_key ที่ประกาศไว้ด้านบน
+            user_choice = st.selectbox(
+                f"Select {slot_name}", 
+                options=valid_courses, 
+                key=f"slot_select_{term_key}_{slot_name}"
+            )
             
-            if selected != "-":
-                code = selected.split(" | ")[0]
-                info = all_courses_db[code]
-                total_creds += info[0]
-                st.caption(f"✅ {info[0]} หน่วยกิต")
-            else:
-                st.caption("ว่าง (ยังไม่ได้เลือกวิชา)")
+            if user_choice != "-":
+                code = user_choice.split(" | ")[0]
+                total_credits += all_courses_db[code][0]
+                final_subjects.append(f"{code} ({all_courses_db[code][3]})")
+                st.caption(f"✅ {all_courses_db[code][0]} นก.")
 
     st.divider()
-    max_c = 30 if is_grad else (9 if t_sel == "S" else 22)
-    st.metric("หน่วยกิตรวมเทอมนี้", f"{total_creds} / {max_c}")
     
-    if total_creds > max_c:
-        st.error(f"❌ หน่วยกิตเกิน {max_c}!")
-    elif total_creds > 0:
-        st.success("✅ ตารางสอบลงตัว (ไม่มีทางสอบชนกันแน่นอน)")
+    # สรุปผลด้านล่าง
+    c1, c2 = st.columns([1, 2])
+    with c1:
+        limit = 30 if is_grad else (9 if t_sel == "S" else 22)
+        st.metric("หน่วยกิตรวม", f"{total_credits} / {limit}")
+        if total_credits > limit:
+            st.error("เกินกำหนด!")
+            
+    with c2:
+        st.markdown("**วิชาที่ลงทะเบียนในเทอมนี้:**")
+        if final_subjects:
+            for s in final_subjects:
+                st.write(f"- {s}")
+        else:
+            st.write("ยังไม่ได้เลือกวิชา")
 
 st.markdown("---")
 if st.button("🧧 โดเนทสนับสนุน"):
-    if os.path.exists("donate.jpg"): st.image("donate.jpg", use_container_width=True)
+    for ext in ["jpg", "jpeg", "png"]:
+        if os.path.exists(f"donate.{ext}"):
+            st.image(f"donate.{ext}", use_container_width=True)
