@@ -13,43 +13,64 @@ all_courses = {
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="Law GPA 6-Cols", layout="wide")
+st.set_page_config(page_title="Law GPA Pro", layout="wide")
 
-# CSS สำหรับปรับแต่งความสวยงามและชิดขอบ
+# CSS ขั้นสูง: ซ่อนลูกศร Dropdown และปรับแต่งให้ตัวเกรดอยู่ตรงกลางชัดๆ
 st.markdown("""
     <style>
     .stMainBlockContainer { padding-top: 1rem !important; }
-    .stCheckbox { margin-bottom: -15px !important; }
-    .stSelectbox div[data-baseweb="select"] { min-height: 25px !important; height: 25px !important; }
+    
+    /* ซ่อนลูกศรใน Selectbox */
+    [data-baseweb="select"] [data-testid="stHeaderActionElements"] {
+        display: none !important;
+    }
+    
+    /* ปรับแต่งช่อง Selectbox ให้เล็กและตัวอักษรอยู่ตรงกลาง */
+    div[data-baseweb="select"] {
+        min-height: 28px !important;
+        height: 28px !important;
+        border-radius: 4px !important;
+    }
+    
+    div[data-baseweb="select"] > div {
+        padding: 0px 2px !important;
+        text-align: center !important;
+    }
+
+    /* ปรับ Font เกรดให้ตัวใหญ่และหนาขึ้นเล็กน้อย */
+    div[data-testid="stMarkdownContainer"] p {
+        font-size: 13px !important;
+    }
+
     .result-box {
-        padding: 5px;
-        border: 1px solid #e6e6e6;
-        border-radius: 5px;
+        padding: 4px;
+        border: 1px solid #d1d1d1;
+        border-radius: 4px;
         text-align: center;
-        background-color: #f9f9f9;
-        margin-bottom: 5px;
+        background-color: #ffffff;
+        margin-bottom: 4px;
+        font-size: 12px;
     }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("⚖️ ระบบคำนวณเกรดนิติศาสตร์")
 
-# ตัวแปรสำหรับคำนวณ
 selected_data = []
 
-# --- 1. ส่วนเลือกวิชา (แสดง 4 คอลัมน์สำหรับเลือก) ---
-st.subheader("📋 เลือกวิชาและใส่เกรด")
+# --- ส่วนเลือกวิชา ---
 for cat, courses in all_courses.items():
     with st.expander(f"📂 {cat}", expanded=True):
         cols = st.columns(4)
         for i, (name, credit) in enumerate(courses.items()):
             with cols[i % 4]:
-                inner = st.columns([1.5, 1])
+                inner = st.columns([1.4, 1])
                 if inner[0].checkbox(name, key=f"chk_{name}"):
+                    # ใส่เกรดเริ่มต้นเป็น A เพื่อให้มองเห็นง่าย
                     g = inner[1].selectbox("G", list(grade_map.keys()), key=f"g_{name}", label_visibility="collapsed")
                     selected_data.append({"name": name, "credit": credit, "grade": g})
 
-# --- 2. ส่วนแสดงผลการคำนวณและสรุปวิชา (6 คอลัมน์) ---
+# --- ส่วนสรุปผล 6 คอลัมน์ ---
 if selected_data:
     st.markdown("---")
     total_creds = sum(d['credit'] for d in selected_data)
@@ -57,36 +78,23 @@ if selected_data:
     gpa = total_points / total_creds if total_creds > 0 else 0
 
     col_res, col_pdf = st.columns([4, 1])
-    col_res.success(f"### GPA: {gpa:.2f} | รวม {total_creds} หน่วยกิต")
+    col_res.success(f"### GPA รวม: {gpa:.2f} | ทั้งหมด {total_creds} หน่วยกิต")
     
-    # แสดงรายชื่อวิชาที่เลือกแบบ 6 คอลัมน์
-    st.write("**วิชาที่คำนวณแล้ว:**")
     res_cols = st.columns(6)
     for idx, item in enumerate(selected_data):
         with res_cols[idx % 6]:
-            st.markdown(f"""
-                <div class="result-box">
-                    <small>{item['name']}</small><br>
-                    <b>เกรด: {item['grade']}</b>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="result-box">{item["name"]}<br><b>{item["grade"]}</b></div>', unsafe_allow_html=True)
 
-    # ปุ่ม PDF
     if col_pdf.button("🖨️ พิมพ์ PDF", use_container_width=True):
         if os.path.exists("THSarabunNew.ttf"):
             pdf = FPDF()
             pdf.add_page()
             pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
-            pdf.set_font("THSarabun", "", 20)
+            pdf.set_font("THSarabun", "", 18)
             pdf.cell(0, 10, "รายงานผลการเรียน", ln=True, align='C')
             pdf.set_font("THSarabun", "", 12)
             for d in selected_data:
                 pdf.cell(60, 8, f" {d['name']}", 1)
                 pdf.cell(60, 8, f" {d['credit']} นก.", 1)
                 pdf.cell(60, 8, f" เกรด {d['grade']}", 1, ln=True)
-            pdf.ln(5)
-            pdf.set_font("THSarabun", "", 16)
-            pdf.cell(0, 10, f"GPA รวม: {gpa:.2f} | หน่วยกิตสะสม: {total_creds}", ln=True)
-            st.download_button("💾 Save PDF", data=pdf.output(), file_name="GPA_Law.pdf")
-        else:
-            st.error("ไม่พบฟอนต์")
+            st.download_button("💾 บันทึก PDF", data=pdf.output(), file_name="GPA_Law.pdf")
