@@ -30,15 +30,28 @@ all_courses = {
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="GPA Law Compact PDF", layout="wide")
+st.set_page_config(page_title="GPA Law Pro", layout="wide")
 
-# --- 2. ฟังก์ชันล้างค่า ---
+# --- 2. ฟังก์ชัน Popup โดเนท ---
+@st.dialog("สนับสนุนผู้พัฒนา 🙏")
+def donate_dialog():
+    st.write("ใช้ฟรี! แต่หากอยากโดเนทเพื่อให้กำลังใจ สามารถสแกนได้ที่นี่ครับ")
+    # เปลี่ยนชื่อไฟล์ให้ตรงกับที่คุณมี (เช่น donate.png, donate.jpg)
+    if os.path.exists("donate.png"):
+        st.image("donate.png", caption="Scan for Donation", use_container_width=True)
+    elif os.path.exists("donate.jpg"):
+        st.image("donate.jpg", caption="Scan for Donation", use_container_width=True)
+    else:
+        st.error("ไม่พบไฟล์รูปภาพ donate.png หรือ donate.jpg ในระบบ")
+    st.write("ขอบคุณทุกการสนับสนุนครับ ✨")
+
+# --- 3. ฟังก์ชันล้างค่า ---
 def reset_all():
     for key in list(st.session_state.keys()):
         if key.startswith("chk_") or key.startswith("g_"):
             st.session_state[key] = False if key.startswith("chk_") else "A"
 
-# --- 3. CSS Customization ---
+# --- 4. CSS ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
@@ -50,6 +63,7 @@ st.markdown("""
     div[data-testid="column"] { padding: 0px 4px !important; }
     .stCheckbox { margin-bottom: -15px !important; }
     .result-box { padding: 4px; border: 1px solid #ddd; border-radius: 4px; text-align: center; background-color: white; margin-bottom: 5px; font-size: 11px; }
+    .footer-text { text-align: center; color: #888; margin-top: 50px; font-size: 14px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -60,7 +74,7 @@ if head_col2.button("♻️ ล้างค่า", on_click=reset_all, use_cont
 
 selected_by_cat = {cat: [] for cat in all_courses.keys()}
 
-# --- 4. ส่วนเลือกวิชา ---
+# --- 5. ส่วนเลือกวิชา ---
 for cat, courses in all_courses.items():
     with st.expander(f"📂 {cat}", expanded=True):
         cols = st.columns(4)
@@ -69,7 +83,6 @@ for cat, courses in all_courses.items():
                 inner = st.columns([1.3, 1])
                 chk_key = f"chk_{name}"
                 if chk_key not in st.session_state: st.session_state[chk_key] = False
-                
                 if inner[0].checkbox(name, key=chk_key):
                     grd_key = f"g_{name}"
                     if grd_key not in st.session_state: st.session_state[grd_key] = "A"
@@ -78,7 +91,7 @@ for cat, courses in all_courses.items():
 
 all_selected = [item for sublist in selected_by_cat.values() for item in sublist]
 
-# --- 5. สรุปผลและสร้าง PDF (2 คอลัมน์) ---
+# --- 6. สรุปผลและสร้าง PDF ---
 if all_selected:
     st.divider()
     total_creds = sum(d['credit'] for d in all_selected)
@@ -100,48 +113,25 @@ if all_selected:
             pdf.add_font("THSarabun", "", "THSarabunNew.ttf")
             pdf.set_font("THSarabun", "", 22)
             pdf.cell(0, 15, "รายงานสรุปผลการเรียนนิติศาสตร์", ln=True, align='C')
-            pdf.ln(5)
-
             for cat, items in selected_by_cat.items():
                 if items:
-                    pdf.set_font("THSarabun", "", 16)
-                    pdf.set_fill_color(230, 230, 230)
-                    pdf.cell(0, 10, f" {cat}", ln=True, fill=True)
-                    pdf.ln(2)
-                    
-                    pdf.set_font("THSarabun", "", 12)
-                    
-                    # Logic แบ่ง 2 คอลัมน์
-                    col_width = 90
-                    start_y = pdf.get_y()
-                    
+                    pdf.set_font("THSarabun", "", 16); pdf.set_fill_color(230, 230, 230)
+                    pdf.cell(0, 10, f" {cat}", ln=True, fill=True); pdf.ln(2); pdf.set_font("THSarabun", "", 12)
                     for i, d in enumerate(items):
-                        # สลับฝั่งซ้าย (0) และ ขวา (1)
                         side = i % 2
-                        if side == 0 and i > 0:
-                            pdf.set_y(pdf.get_y() + 8) # ขึ้นบรรทัดใหม่เมื่อเริ่มคู่ใหม่
-                        
-                        x_pos = 10 if side == 0 else 105
-                        current_y = pdf.get_y()
-                        
-                        pdf.set_xy(x_pos, current_y)
-                        # วาดกล่องวิชา [ชื่อวิชา | เกรด]
-                        pdf.cell(col_width * 0.7, 8, f" {d['name']}", 1)
-                        pdf.cell(col_width * 0.3, 8, f"{d['grade']}", 1, align='C')
-                        
-                        # เก็บค่า Y สูงสุดไว้เพื่อเลื่อนตำแหน่งหัวข้อถัดไป
-                        max_y = pdf.get_y()
-
-                    pdf.set_y(pdf.get_y() + 12) # เว้นระยะห่างก่อนเริ่มหมวดใหม่
-
-            pdf.ln(5)
-            pdf.set_font("THSarabun", "", 18)
+                        if side == 0 and i > 0: pdf.set_y(pdf.get_y() + 8)
+                        pdf.set_xy(10 if side == 0 else 105, pdf.get_y())
+                        pdf.cell(63, 8, f" {d['name']}", 1); pdf.cell(27, 8, f"{d['grade']}", 1, align='C')
+                    pdf.set_y(pdf.get_y() + 12)
+            pdf.ln(5); pdf.set_font("THSarabun", "", 18)
             pdf.cell(0, 10, f"หน่วยกิตสะสมรวม: {total_creds} หน่วยกิต", ln=True)
             pdf.cell(0, 10, f"เกรดเฉลี่ยสะสม (GPA): {gpa:.2f}", ln=True)
-            
-            pdf_bytes = pdf.output()
-            st.download_button(label="📥 ดาวน์โหลด PDF", data=bytes(pdf_bytes), file_name="GPA_Law_Report.pdf", mime="application/pdf", use_container_width=True)
-        else:
-            st.error("ไม่พบฟอนต์")
-else:
-    st.info("👈 เลือกวิชาด้านบนเพื่อดูสรุปผล")
+            st.download_button(label="📥 ดาวน์โหลด PDF", data=bytes(pdf.output()), file_name="GPA_Law_Report.pdf", mime="application/pdf", use_container_width=True)
+
+# --- 7. Footer และปุ่มโดเนท ---
+st.markdown("---")
+f_col1, f_col2, f_col3 = st.columns([1, 2, 1])
+with f_col2:
+    st.markdown('<p class="footer-text">โปรแกรมนี้ใช้ฟรี! หากถูกใจและอยากส่งกำลังใจให้ผู้พัฒนา</p>', unsafe_allow_html=True)
+    if st.button("🧧 สนับสนุนค่าน้ำชา / โดเนท", use_container_width=True):
+        donate_dialog()
