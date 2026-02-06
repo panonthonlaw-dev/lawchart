@@ -6,11 +6,13 @@ from io import BytesIO
 # --- 1. ข้อมูลวิชาและตารางสอบ (Database) ---
 # "รหัสวิชา": [หน่วยกิต, "วันสอบ", "คาบ", "ชื่อวิชา", "หมวดหมู่"]
 all_courses_db = {
+    # หมวด RAM
     "RAM1101": [3, "4", "A", "ไทย", "RAM"], "RAM1111": [3, "4", "B", "อังกฤษ 1", "RAM"],
     "RAM1112": [3, "3", "B", "อังกฤษ 2", "RAM"], "RAM1132": [3, "3", "A", "ห้องสมุด", "RAM"],
     "RAM1141": [3, "2", "A", "บุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
     "RAM1213": [3, "3", "A", "วิชา RAM", "RAM"], "RAM1301": [3, "4", "B", "คุณธรรม", "RAM"],
     "RAM1303": [3, "2", "B", "วิทยาศาสตร์", "RAM"], "RAM1312": [3, "4", "B", "วิชา RAM", "RAM"],
+    # หมวด LAW (พื้นฐาน & แกน)
     "LAW1101": [2, "2", "A", "มหาชน", "LAW"], "LAW1102": [2, "4", "A", "เอกชน", "LAW"],
     "LAW1103": [3, "2", "A", "นิติกรรม", "LAW"], "LAW2101": [3, "2", "B", "ทรัพย์", "LAW"],
     "LAW2102": [3, "3", "A", "หนี้", "LAW"], "LAW2104": [3, "2", "B", "รธน.", "LAW"],
@@ -24,21 +26,24 @@ all_courses_db = {
     "LAW3105": [3, "1", "B", "วิ.แพ่ง 1", "LAW"], "LAW3106": [3, "4", "B", "วิอาญา 1", "LAW"],
     "LAW3109": [3, "3", "B", "มรดก", "LAW"], "LAW3110": [2, "1", "A", "ล้มละลาย", "LAW"],
     "LAW3111": [3, "2", "A", "พยาน", "LAW"], "LAW3112": [3, "1", "B", "ปกครอง", "LAW"],
-    "LAW3117": [2, "1", "A", "ป.วิมหาชน", "LAW"], "LAW3133": [3, "3", "B", "อาชญากร", "LAW"],
+    "LAW3117": [2, "1", "A", "ป.วิมหาชน", "LAW"], 
     "LAW4101": [2, "1", "A", "ภาษี", "LAW"], "LAW4102": [3, "2", "B", "ว่าความ", "LAW"],
     "LAW4103": [3, "4", "A", "คดีเมือง", "LAW"], "LAW4104": [2, "2", "B", "แรงงาน", "LAW"],
     "LAW4105": [2, "2", "A", "วิชาชีพทนาย", "LAW"], "LAW4106": [2, "3", "A", "คดีบุคคล", "LAW"],
     "LAW4107": [2, "2", "B", "ปรัชญา", "LAW"], "LAW4108": [3, "2", "B", "ที่ดิน", "LAW"],
     "LAW4109": [3, "4", "A", "ทรัพย์สินทางปัญญา", "LAW"], "LAW4110": [2, "1", "A", "ค้าระหว่างประเทศ", "LAW"],
-    "LAW3138": [2, "1", "B", "เด็ก", "ELECTIVE"], "LAW4134": [2, "1", "B", "ทะเล", "ELECTIVE"],
+    # หมวดวิชาเลือก (ย้าย LAW3133 มาที่นี่แล้ว)
+    "LAW3133": [3, "3", "B", "อาชญากร", "ELECTIVE"],
+    "LAW3138": [2, "1", "B", "เด็ก", "ELECTIVE"],
+    "LAW4134": [2, "1", "B", "ทะเล", "ELECTIVE"],
     "LAW4156": [2, "2", "A", "อิ้งกฎหมาย", "ELECTIVE"],
-    "วิชาเลือก 1": [3, "0", "0", "เลือกเสรี 1", "ELECTIVE"], "วิชาเลือก 2": [3, "0", "0", "เลือกเสรี 2", "ELECTIVE"],
-    "กฎหมายเลือก 1": [3, "0", "0", "กม.เลือก 1", "ELECTIVE"], "กฎหมายเลือก 2": [3, "0", "0", "กม.เลือก 2", "ELECTIVE"]
+    "วิชาเลือก 1": [3, "0", "0", "เลือกเสรี 1", "ELECTIVE"],
+    "วิชาเลือก 2": [3, "0", "0", "เลือกเสรี 2", "ELECTIVE"]
 }
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
 
-st.set_page_config(page_title="Law Planner Pro", layout="wide")
+st.set_page_config(page_title="GPA Law Pro", layout="wide")
 
 # --- 2. CSS ---
 st.markdown("""
@@ -46,11 +51,14 @@ st.markdown("""
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stMainBlockContainer { padding-top: 1.5rem !important; }
-    .stMultiSelect div[role="listbox"] { font-size: 0.8rem; }
-    .term-info { font-size: 0.85rem; color: #555; margin-bottom: 5px; }
     [data-testid="stExpander"] [data-testid="column"] { flex: 1 1 45% !important; min-width: 140px !important; }
-    .summary-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-    .result-box { width: 100px; padding: 8px 4px; border: 2px solid #333; border-radius: 8px; text-align: center; background-color: white; }
+    .summary-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; padding: 10px 0; }
+    .result-box {
+        width: 100px; padding: 8px 4px; border: 2px solid #333; border-radius: 8px;
+        text-align: center; background-color: #ffffff !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
+    .result-box span { font-size: 11px !important; display: block; color: #333 !important; }
+    .result-box b { font-size: 20px !important; display: block; color: #d32f2f !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -61,14 +69,16 @@ def reset_plan():
     st.rerun()
 
 # --- 4. หน้าจอหลัก ---
-st.title("⚖️ Law GPA & Planning Tool")
+st.title("⚖️ Law GPA & Planning")
 
 tab1, tab2 = st.tabs(["📊 คำนวณเกรด", "📅 วางแผนลงทะเบียน"])
 
 with tab1:
-    st.info("เปิดหมวดหมู่และเลือกวิชาที่สอบผ่านแล้ว")
+    st.info("เปิดหมวดหมู่เพื่อเลือกวิชาที่สอบผ่านแล้ว")
     selected_gpa = []
-    cats = {"📂 หมวด RAM": "RAM", "📂 หมวด LAW": "LAW", "📂 หมวดเลือก": "ELECTIVE"}
+    # แบ่งกลุ่มวิชา
+    cats = {"📂 หมวด RAM": "RAM", "📂 หมวด LAW": "LAW", "📂 หมวดวิชาเลือก": "ELECTIVE"}
+    
     for label, code_prefix in cats.items():
         with st.expander(label, expanded=(code_prefix == "LAW")):
             cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == code_prefix}
@@ -79,20 +89,29 @@ with tab1:
                     if c_row[0].checkbox(f"{code}", key=f"gpa_{code}"):
                         g = c_row[1].selectbox("G", list(grade_map.keys()), key=f"sel_{code}", label_visibility="collapsed")
                         selected_gpa.append({"name": code, "credit": info[0], "grade": g})
+    
     if selected_gpa:
+        st.divider()
         total_creds = sum(d['credit'] for d in selected_gpa)
         total_points = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
-        st.success(f"GPA: {total_points/total_creds:.2f} | รวม {total_creds} นก.")
+        gpa_score = total_points / total_creds if total_creds > 0 else 0
+        st.success(f"### GPA: {gpa_score:.2f} | รวม {total_creds} หน่วยกิต")
+        
+        sum_html = '<div class="summary-grid">'
+        for d in selected_gpa:
+            sum_html += f'<div class="result-box"><span>{d["name"]}</span><b>{d["grade"]}</b></div>'
+        sum_html += '</div>'
+        st.markdown(sum_html, unsafe_allow_html=True)
 
 with tab2:
-    st.subheader("จัดแผนการเรียน (ป้องกันสอบชนและลงซ้ำ)")
+    st.subheader("จัดแผนการเรียน (กันลงซ้ำและสอบชน)")
     is_grad = st.toggle("🎓 ขอจบการศึกษา (ลงได้ 30 นก. / สอบซ้ำซ้อนได้)")
     if st.button("♻️ ล้างแผนทั้งหมด"): reset_plan()
 
     years = ["ปี 1", "ปี 2", "ปี 3", "ปี 4"]
     terms_list = ["ภาค 1", "ภาค 2", "ภาคฤดูร้อน (S)"]
     
-    # --- ส่วนสำคัญ: รวบรวมวิชาที่ถูกเลือกไปแล้วในเทอมอื่นๆ ---
+    # รวบรวมวิชาที่เลือกไปแล้วเพื่อใช้กรองออก
     used_subjects = []
     for y in years:
         for t in terms_list:
@@ -108,14 +127,14 @@ with tab2:
                 with t_cols[i]:
                     st.markdown(f"**{term}**")
                     
-                    # กรองวิชา: แสดงเฉพาะวิชาที่ยังไม่ถูกเลือกในเทอมอื่น + วิชาที่เลือกอยู่ในเทอมนี้เอง
+                    # กรองวิชาไม่ให้ซ้ำเทอมอื่น
                     current_term_selected = st.session_state.get(t_key, [])
                     available_options = [
                         code for code in all_courses_db.keys() 
                         if code not in used_subjects or code in current_term_selected
                     ]
 
-                    # ฟังก์ชันแสดงชื่อวิชาพร้อมวันสอบใน Dropdown
+                    # แสดงชื่อวิชาพร้อมคาบสอบ
                     def format_func(code):
                         info = all_courses_db[code]
                         exam = f"{info[1]}{info[2]}" if info[1] != "0" else "ไม่มีสอบ"
@@ -128,12 +147,11 @@ with tab2:
                         key=t_key
                     )
                     
-                    # สรุปหน่วยกิต
                     max_c = 30 if is_grad else (9 if "S" in term else 22)
                     cur_c = sum(all_courses_db[s][0] for s in selected_subs)
-                    st.markdown(f'<div class="term-info">รวม: <b>{cur_c}/{max_c}</b> นก.</div>', unsafe_allow_html=True)
+                    st.write(f"รวม: **{cur_c}/{max_c}** นก.")
                     
-                    if cur_c > max_c: st.error(f"เกินหน่วยกิต!")
+                    if cur_c > max_c: st.error("เกินหน่วยกิต!")
                     
                     # เช็กสอบชน
                     days = {}
@@ -142,5 +160,10 @@ with tab2:
                         d_code = f"{info[1]}{info[2]}"
                         if d_code != "00" and d_code in days:
                             if is_grad: st.warning(f"⚠️ {s} ชน {days[d_code]}")
-                            else: st.error(f"❌ {s} ชน {days[d_code]}")
+                            else: st.error(f"❌ {s} ชน {days[d_code]}!")
                         days[d_code] = s
+
+st.markdown("---")
+if st.button("🧧 สนับสนุนค่าน้ำชา / โดเนท", use_container_width=True):
+    from donate_module import donate_dialog # หรือใส่ฟังก์ชันเดิมคืนที่นี่
+    donate_dialog()
