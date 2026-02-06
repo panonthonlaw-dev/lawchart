@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 
-# --- 1. ข้อมูลวิชา (Database กลาง) ---
+# --- 1. ข้อมูลวิชา (Database กลาง - ล็อกคาบสอบไว้ที่นี่) ---
 all_courses_db = {
     # หมวด RAM
     "RAM1101": [3, "4", "A", "ภาษาไทย", "RAM"], "RAM1111": [3, "4", "B", "อังกฤษ 1", "RAM"],
@@ -9,7 +9,7 @@ all_courses_db = {
     "RAM1141": [3, "2", "A", "บุคลิกภาพ", "RAM"], "RAM1204": [3, "3", "B", "ทักษะการคิด", "RAM"],
     "RAM1213": [3, "3", "A", "วิชา RAM", "RAM"], "RAM1301": [3, "4", "B", "คุณธรรม", "RAM"],
     "RAM1303": [3, "2", "B", "วิทยาศาสตร์", "RAM"], "RAM1312": [3, "4", "B", "วิชา RAM", "RAM"],
-    # หมวด LAW
+    # หมวด LAW (รหัสผ่านการตรวจสอบแล้ว)
     "LAW1101": [2, "2", "A", "กฎหมายมหาชน", "LAW"], "LAW1102": [2, "4", "A", "กฎหมายเอกชน", "LAW"],
     "LAW1103": [3, "2", "A", "นิติกรรม", "LAW"], "LAW2101": [3, "2", "B", "ทรัพย์", "LAW"],
     "LAW2102": [3, "3", "A", "หนี้", "LAW"], "LAW2104": [3, "2", "B", "รัฐธรรมนูญ", "LAW"],
@@ -35,115 +35,112 @@ all_courses_db = {
 }
 
 grade_map = {"A": 4.0, "B+": 3.5, "B": 3.0, "C+": 2.5, "C": 2.0, "D+": 1.5, "D": 1.0, "F": 0.0}
-exam_slots = ["-", "1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
 
-st.set_page_config(page_title="GPA & Slot Planner", layout="wide")
+st.set_page_config(page_title="Safe Law Planner", layout="wide")
 
 # --- 2. CSS ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
-    .stMainBlockContainer { padding-top: 1.5rem !important; }
-    .summary-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; padding: 10px 0; }
-    .result-box {
-        width: 100px; padding: 8px 4px; border: 2px solid #333; border-radius: 8px;
-        text-align: center; background-color: #ffffff !important; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    .exam-badge {
+        background-color: #e3f2fd;
+        color: #0d47a1;
+        padding: 2px 8px;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 14px;
+        border: 1px solid #bbdefb;
     }
-    .result-box span { font-size: 11px !important; display: block; color: #333 !important; }
-    .result-box b { font-size: 20px !important; display: block; color: #d32f2f !important; }
+    .slot-box {
+        border: 1px solid #ddd;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: #ffffff;
+        min-height: 120px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("⚖️ Law GPA & Planning")
+st.title("⚖️ Law GPA & Safe Planning")
 
-tab1, tab2 = st.tabs(["📊 คำนวณเกรด", "📅 วางแผนลงทะเบียน (8 Slot)"])
+tab1, tab2 = st.tabs(["📊 คำนวณเกรด", "📅 วางแผนลงทะเบียน (ล็อกคาบสอบ)"])
 
-# --- TAB 1: คำนวณเกรด (GPA) ---
+# --- TAB 1: คำนวณเกรด ---
 with tab1:
-    st.info("เปิดหมวดหมู่เพื่อติ๊กวิชาที่สอบผ่านแล้ว")
+    st.info("ติ๊กวิชาที่ผ่านแล้วเพื่อดู GPA สะสม")
     selected_gpa = []
-    cats = {"📂 หมวด RAM": "RAM", "📂 หมวด LAW": "LAW", "📂 หมวดวิชาเลือก": "ELECTIVE"}
-    
-    for label, code_prefix in cats.items():
-        with st.expander(label, expanded=(code_prefix == "LAW")):
-            cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == code_prefix}
-            gpa_cols = st.columns(4)
+    cats = {"หมวด RAM": "RAM", "หมวด LAW": "LAW", "หมวดเลือก": "ELECTIVE"}
+    for label, cp in cats.items():
+        with st.expander(label, expanded=(cp == "LAW")):
+            cat_courses = {k: v for k, v in all_courses_db.items() if v[4] == cp}
+            cols = st.columns(4)
             for idx, (code, info) in enumerate(cat_courses.items()):
-                with gpa_cols[idx % 4]:
-                    c_row = st.columns([1.1, 1])
-                    if c_row[0].checkbox(f"{code}", key=f"gpa_{code}"):
-                        g = c_row[1].selectbox("G", list(grade_map.keys()), key=f"sel_{code}", label_visibility="collapsed")
-                        selected_gpa.append({"name": code, "credit": info[0], "grade": g})
-    
+                with cols[idx % 4]:
+                    r = st.columns([1.2, 1])
+                    if r[0].checkbox(code, key=f"g_{code}"):
+                        g = r[1].selectbox("G", list(grade_map.keys()), key=f"s_{code}", label_visibility="collapsed")
+                        selected_gpa.append({"credit": info[0], "grade": g})
     if selected_gpa:
-        st.divider()
         total_creds = sum(d['credit'] for d in selected_gpa)
-        total_points = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
-        gpa_score = total_points / total_creds if total_creds > 0 else 0
-        st.success(f"### GPA สะสม: {gpa_score:.2f} | รวม {total_creds} หน่วยกิต")
-        
-        # แสดงผลสรุปเป็นกล่อง
-        sum_html = '<div class="summary-grid">'
-        for d in selected_gpa:
-            sum_html += f'<div class="result-box"><span>{d["name"]}</span><b>{d["grade"]}</b></div>'
-        sum_html += '</div>'
-        st.markdown(sum_html, unsafe_allow_html=True)
+        total_pts = sum(grade_map[d['grade']] * d['credit'] for d in selected_gpa)
+        st.success(f"GPA: {total_pts/total_creds:.2f} | รวม {total_creds} นก.")
 
-# --- TAB 2: วางแผนลงทะเบียน (8 Slot ตามคาบสอบ) ---
+# --- TAB 2: วางแผนลงทะเบียน (ล็อกคาบสอบ) ---
 with tab2:
-    col_y, col_t, col_g = st.columns([1, 1, 1])
-    sel_y = col_y.selectbox("ปีการศึกษา", [1, 2, 3, 4])
-    sel_t = col_t.selectbox("เทอม", ["1", "2", "S"])
-    is_grad = col_g.toggle("🎓 ขอจบการศึกษา (สอบซ้ำซ้อนได้)")
+    c_y, c_t, c_g = st.columns([1, 1, 1])
+    y_sel = c_y.selectbox("ปีการศึกษา", [1, 2, 3, 4])
+    t_sel = c_t.selectbox("เทอม", ["1", "2", "S"])
+    is_grad = c_g.toggle("🎓 ขอจบการศึกษา (อนุญาตให้สอบซ้ำซ้อน)")
 
     st.divider()
-    st.markdown(f"### 🗓️ ตารางจัดแผน: ปี {sel_y} เทอม {sel_t}")
+    st.subheader(f"📍 ตารางจัดแผน: ปี {y_sel} เทอม {t_sel}")
 
-    term_key = f"Y{sel_y}T{sel_t}"
-    total_c = 0
+    term_id = f"Y{y_sel}T{t_sel}"
+    total_credits = 0
     exam_conflicts = []
     used_exams = {}
-    course_options = ["-"] + sorted(list(all_courses_db.keys()))
+    options = ["-"] + sorted(list(all_courses_db.keys()))
 
-    slot_cols = st.columns(4)
+    # แสดงผล 8 สล็อต
+    rows = st.columns(4)
     for i in range(1, 9):
-        with slot_cols[(i-1) % 4]:
-            st.markdown(f"**แถวที่ {i}**")
-            # 1. เลือกวิชา
-            sub_code = st.selectbox("วิชา", course_options, key=f"slot_sub_{term_key}_{i}")
+        with rows[(i-1) % 4]:
+            st.markdown(f"**อันดับที่ {i}**")
+            sub = st.selectbox("เลือกวิชา", options, key=f"slot_{term_id}_{i}")
             
-            if sub_code != "-":
-                info = all_courses_db[sub_code]
-                total_c += info[0]
+            if sub != "-":
+                info = all_courses_db[sub]
+                total_credits += info[0]
                 
-                # 2. เลือกวันสอบ (ดึง Default จาก DB)
-                def_exam = f"{info[1]}{info[2]}" if info[1] != "0" else "-"
-                idx = exam_slots.index(def_exam) if def_exam in exam_slots else 0
-                
-                exam_time = st.selectbox("คาบสอบ", exam_slots, index=idx, key=f"slot_ex_{term_key}_{i}")
-                
-                if exam_time != "-":
-                    if exam_time in used_exams:
-                        exam_conflicts.append(f"{sub_code} ชน {used_exams[exam_time]} ({exam_time})")
-                    used_exams[exam_time] = sub_code
+                # แสดงคาบสอบแบบล็อก (ห้ามแก้)
+                exam_code = f"{info[1]}{info[2]}" if info[1] != "0" else "ไม่มีสอบ"
+                st.markdown(f"คาบสอบ: <span class='exam-badge'>{exam_code}</span>", unsafe_allow_html=True)
                 st.caption(f"{info[3]} ({info[0]} นก.)")
+                
+                # เช็กสอบชน
+                if exam_code != "ไม่มีสอบ":
+                    if exam_code in used_exams:
+                        exam_conflicts.append(f"{sub} ชนกับ {used_exams[exam_code]} ({exam_code})")
+                    used_exams[exam_code] = sub
             else:
-                st.selectbox("คาบสอบ", ["-"], key=f"ex_disabled_{i}", disabled=True)
+                st.write("---") # ช่องว่าง
 
     st.divider()
-    max_c = 30 if is_grad else (9 if sel_t == "S" else 22)
-    st.metric("หน่วยกิตรวมเทอมนี้", f"{total_c} / {max_c}")
-    
+    limit = 30 if is_grad else (9 if t_sel == "S" else 22)
+    st.metric("หน่วยกิตรวม", f"{total_credits} / {limit}")
+
     if exam_conflicts:
-        if is_grad: st.warning("⚠️ มีวิชาสอบชนกัน (ใช้สิทธิ์ซ้ำซ้อน)")
-        else: st.error("❌ สอบชนกัน! กรุณาจัดตารางใหม่")
-        for c in exam_conflicts: st.write(f"- {c}")
-    elif total_c > 0:
-        st.success("✅ ตารางเรียนสมบูรณ์")
+        if is_grad:
+            st.warning("⚠️ พบวิชาสอบชนกัน (ใช้สิทธิ์สอบซ้ำซ้อนได้)")
+            for c in exam_conflicts: st.write(f"- {c}")
+        else:
+            st.error("❌ สอบชนกัน! ระบบไม่อนุญาตให้ลงทะเบียน")
+            for c in exam_conflicts: st.write(f"- {c}")
+    elif total_credits > 0:
+        st.success("✅ ตารางสอบสมบูรณ์ ไม่มีการสอบซ้ำซ้อน")
 
 st.markdown("---")
-if st.button("🧧 สนับสนุนค่าน้ำชา / โดเนท", use_container_width=True):
+if st.button("🧧 โดเนทสนับสนุน"):
     for ext in ["jpg", "jpeg", "png"]:
-        path = f"donate.{ext}"
-        if os.path.exists(path):
-            st.image(path, use_container_width=True)
+        if os.path.exists(f"donate.{ext}"):
+            st.image(f"donate.{ext}", use_container_width=True)
