@@ -3,7 +3,7 @@ from fpdf import FPDF
 import os
 from io import BytesIO
 
-# --- ข้อมูลวิชา 140 หน่วยกิต ---
+# --- ข้อมูลวิชา ---
 all_courses = {
     "หมวดวิชา RAM": {"RAM1103": 3, "RAM1111": 3, "RAM1112": 3, "RAM1132": 3, "RAM1141": 3, "RAM1204": 3, "RAM1213": 3, "RAM1301": 3, "RAM1302": 3, "RAM1312": 3},
     "หมวดวิชา LAW": {
@@ -31,45 +31,63 @@ def reset_all():
         if key.startswith("chk_") or key.startswith("g_"):
             st.session_state[key] = False if key.startswith("chk_") else "A"
 
-# --- CSS แก้ไขการแสดงผลบนมือถือ ---
+# --- CSS เน้นการมองเห็นบนจอมือถือ (High Visibility) ---
 st.markdown("""
     <style>
     header {visibility: hidden;}
     footer {visibility: hidden;}
     .stMainBlockContainer { padding-top: 2rem !important; }
     
-    /* บังคับให้ส่วนเลือกวิชาแสดง 2 คอลัมน์เสมอ */
+    /* ส่วนเลือกวิชา: บังคับ 2 คอลัมน์บนมือถือ และชื่อวิชาชัดๆ */
     [data-testid="stExpander"] [data-testid="column"] {
         flex: 1 1 45% !important;
         min-width: 140px !important;
     }
     
-    /* ซ่อนลูกศร Dropdown */
-    [data-baseweb="select"] [data-testid="stHeaderActionElements"], svg[class^="StyledIcon"], .stSelectbox svg { display: none !important; }
-    div[data-baseweb="select"] { min-height: 28px !important; height: 28px !important; background-color: #f0f2f6 !important; }
-    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { text-align: center !important; font-weight: bold !important; font-size: 14px !important; }
+    /* ปรับแต่ง Dropdown เกรดให้ตัวหนังสือใหญ่และอยู่กลาง */
+    div[data-baseweb="select"] { 
+        min-height: 35px !important; 
+        background-color: #ffffff !important; 
+        border: 1px solid #000 !important;
+    }
+    div[data-baseweb="select"] [data-testid="stMarkdownContainer"] p { 
+        color: #000000 !important; 
+        font-weight: bold !important; 
+        font-size: 16px !important; 
+    }
     
-    /* กล่องสรุปวิชาแบบปรับตามขนาดหน้าจอ (Responsive Grid) */
-    .summary-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 5px;
-        margin-top: 10px;
+    /* กล่องสรุปผลด้านล่าง: บังคับขนาดและสีตัวอักษร */
+    .summary-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-start;
     }
     .result-box {
-        padding: 5px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
+        width: 90px;
+        padding: 8px 4px;
+        border: 2px solid #333;
+        border-radius: 8px;
         text-align: center;
         background-color: #ffffff;
-        font-size: 11px;
-        line-height: 1.2;
+        color: #000000 !important; /* บังคับตัวหนังสือสีดำ */
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    }
+    .result-box span {
+        font-size: 10px;
+        display: block;
+        color: #555;
+    }
+    .result-box b {
+        font-size: 18px;
+        display: block;
+        color: #d32f2f; /* สีแดงเข้มให้เกรดเด่น */
     }
     </style>
     """, unsafe_allow_html=True)
 
 # ส่วนหัว
-head_col1, head_col2 = st.columns([4, 1.5])
+head_col1, head_col2 = st.columns([3, 1])
 head_col1.title("⚖️ คำนวณเกรดนิติศาสตร์")
 if head_col2.button("♻️ ล้างค่า", on_click=reset_all, use_container_width=True):
     st.rerun()
@@ -82,7 +100,7 @@ for cat, courses in all_courses.items():
         cols = st.columns(4)
         for i, (name, credit) in enumerate(courses.items()):
             with cols[i % 4]:
-                c_row = st.columns([1.2, 1])
+                c_row = st.columns([1.1, 1])
                 chk_key = f"chk_{name}"
                 if chk_key not in st.session_state: st.session_state[chk_key] = False
                 
@@ -100,16 +118,21 @@ if all_selected:
     total_points = sum(grade_map[d['grade']] * d['credit'] for d in all_selected)
     gpa = total_points / total_creds if total_creds > 0 else 0
 
-    st.success(f"### GPA: {gpa:.2f} | รวม {total_creds} หน่วยกิต")
+    st.success(f"### GPA: {gpa:.2f} | {total_creds} หน่วยกิต")
     
-    # แสดงรายชื่อวิชาที่เลือกแบบใช้ HTML Grid เพื่อให้รองรับมือถือ
-    summary_html = '<div class="summary-container">'
+    # แสดงรายชื่อวิชาที่เลือกแบบ HTML Grid ที่แก้ปัญหาการมองเห็น
+    summary_html = '<div class="summary-grid">'
     for item in all_selected:
-        summary_html += f'<div class="result-box">{item["name"]}<br><b>{item["grade"]}</b></div>'
+        summary_html += f'''
+            <div class="result-box">
+                <span>{item["name"]}</span>
+                <b>{item["grade"]}</b>
+            </div>
+        '''
     summary_html += '</div>'
     st.markdown(summary_html, unsafe_allow_html=True)
 
-    st.write("") # เว้นระยะ
+    st.write("") 
     if st.button("🖨️ พิมพ์ PDF", use_container_width=True):
         if os.path.exists("THSarabunNew.ttf"):
             pdf = FPDF()
@@ -118,7 +141,6 @@ if all_selected:
             pdf.set_font("THSarabun", "", 22)
             pdf.cell(0, 15, "รายงานสรุปผลการเรียนนิติศาสตร์", ln=True, align='C')
             pdf.ln(5)
-
             for cat, items in selected_by_cat.items():
                 if items:
                     pdf.set_font("THSarabun", "", 16); pdf.set_fill_color(240, 240, 240)
@@ -138,11 +160,9 @@ if all_selected:
                             pdf.cell(25, 8, f"{col2_items[r]['grade']}", 1, align='C')
                         pdf.ln(8)
                     pdf.ln(5)
-
             pdf.ln(5); pdf.set_font("THSarabun", "", 18)
-            pdf.cell(0, 10, f"จำนวนหน่วยกิตสะสมรวม: {total_creds} หน่วยกิต", ln=True)
-            pdf.cell(0, 10, f"เกรดเฉลี่ยสะสม (GPA): {gpa:.2f}", ln=True)
-            st.download_button(label="📥 ดาวน์โหลดไฟล์ PDF", data=bytes(pdf.output()), file_name="GPA_Law_Report.pdf", mime="application/pdf", use_container_width=True)
+            pdf.cell(0, 10, f"สะสมรวม: {total_creds} นก. | GPA: {gpa:.2f}", ln=True)
+            st.download_button(label="📥 ดาวน์โหลด PDF", data=bytes(pdf.output()), file_name="GPA_Report.pdf", mime="application/pdf", use_container_width=True)
         else:
             st.error("ไม่พบฟอนต์")
 
